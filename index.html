@@ -975,6 +975,7 @@ Higher α values = more smoothing = more conservative estimates">
             if (labelTexts.length >= 3) {
                 labelTexts[0].textContent = t('includeRowColumnSums');
                 labelTexts[1].textContent = t('includeAnswerInfo');
+                labelTexts[1].parentElement?.setAttribute?.('data-tooltip', t('tooltips.answerInfo'));
                 labelTexts[2].textContent = t('additiveSmoothing');
             }
             const smoothingToggle = document.querySelector('.toggle-switch[data-tooltip]');
@@ -1565,11 +1566,45 @@ Higher α values = more smoothing = more conservative estimates">
                 const info_row_header = document.createElement('th');
                 info_row_header.className = 'row-header';
                 info_row_header.textContent = t('answerInfoLabel');
+                info_row_header.setAttribute('data-tooltip', t('tooltips.answerInfo'));
                 info_row_header.style.backgroundColor = '#e3f2fd';
                 info_row_header.style.fontWeight = 'bold';
                 info_row_header.style.borderTop = '2px solid #90caf9';
                 info_row_header.style.color = '#1565c0';
                 info_row.appendChild(info_row_header);
+
+                // Attach custom tooltip handlers to match existing style
+                info_row_header.addEventListener('mouseenter', function(event) {
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'custom-tooltip';
+                    tooltip.textContent = this.getAttribute('data-tooltip');
+                    Object.assign(tooltip.style, {
+                        position: 'fixed',
+                        background: '#333',
+                        color: 'white',
+                        padding: '16px 20px',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        lineHeight: '1.5',
+                        whiteSpace: 'pre-line',
+                        zIndex: '9999',
+                        opacity: '0.95',
+                        maxWidth: '400px',
+                        textAlign: 'left',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                        pointerEvents: 'none',
+                        fontFamily: 'system-ui, -apple-system, sans-serif'
+                    });
+                    const rect = this.getBoundingClientRect();
+                    tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                    tooltip.style.top = (rect.top - 10) + 'px';
+                    tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+                    document.body.appendChild(tooltip);
+                });
+                info_row_header.addEventListener('mouseleave', function() {
+                    const tooltips = document.querySelectorAll('.custom-tooltip');
+                    tooltips.forEach(tooltip => tooltip.remove());
+                });
                 
                 // Answer information cells
                 for (let col_index = 0; col_index < answer_information.length; col_index++) {
@@ -1579,7 +1614,6 @@ Higher α values = more smoothing = more conservative estimates">
                     info_cell.style.fontWeight = 'bold';
                     info_cell.style.borderTop = '2px solid #90caf9';
                     info_cell.style.color = '#4a148c';
-                    info_cell.title = `Information provided when classifier predicts ${parsed_data.column_labels[col_index]}`;
                     info_row.appendChild(info_cell);
                 }
                 

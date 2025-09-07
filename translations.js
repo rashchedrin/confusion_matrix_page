@@ -7,7 +7,7 @@ window.LANGUAGES = {
       inputDataTitle: 'Input Data',
       inputPlaceholder: 'Paste your table here (tab or space separated)...\nExample:\nGiraffe\tRhino\tCrab\n360\t12\t24\n4\t200\t2\n100\t60\t3000',
       exampleData: 'Giraffe\tRhino\tCrab\tFox\tAnt\n360\t12\t24\t18\t6\n4\t200\t2\t8\t2\n100\t60\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t700\t2000\t1000\t100000',
-      generateButton: 'Generate Confusion Matrix',
+      generateButton: 'Visualize',
       normalizationTitle: 'Normalization Options',
       normOriginal: 'Original (No normalization)',
       normRow: 'Row normalized',
@@ -67,7 +67,8 @@ window.LANGUAGES = {
         rowScalingFactors: 'Row Scaling Factors (r)',
         columnScalingFactors: 'Column Scaling Factors (c)',
         reconstructionFormula: 'Reconstruction: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])',
-        reconstructionTooltip: 'To reconstruct original matrix: divide doubly stochastic by both r[i] and c[j]'
+        reconstructionTooltip: 'To reconstruct original matrix: divide doubly stochastic by both r[i] and c[j]',
+        answerInfo: 'The amount of information provided by the classifier\'s answer (in bits). Higher = more informative; 0 bits = no information.'
       }
     }
   },
@@ -79,7 +80,7 @@ window.LANGUAGES = {
       inputDataTitle: 'Входные данные',
       inputPlaceholder: 'Вставьте сюда таблицу (разделители — табы или пробелы)...\nПример:\nЖираф\tНосорог\tКраб\n360\t12\t24\n4\t200\t2\n100\t60\t3000',
       exampleData: 'Жираф\tНосорог\tКраб\tЛиса\tМуравей\n360\t12\t24\t18\t6\n4\t200\t2\t8\t2\n100\t60\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t700\t2000\t1000\t100000',
-      generateButton: 'Построить матрицу ошибок',
+      generateButton: 'Визуализировать',
       normalizationTitle: 'Опции нормализации',
       normOriginal: 'Оригинальная (без нормализации)',
       normRow: 'Нормализация по строкам',
@@ -97,7 +98,7 @@ window.LANGUAGES = {
       predictedLabel: 'Предсказанный →',
       actualLabel: 'Истинный ↓',
       sumLabel: 'Сумма',
-      answerInfoLabel: 'Информация ответа (биты)',
+      answerInfoLabel: 'Информация ответа (в битах)',
       matrixTitle: 'Матрица ошибок',
       stats: {
         dimensions: 'Размерность',
@@ -139,7 +140,8 @@ window.LANGUAGES = {
         rowScalingFactors: 'Коэффициенты масштабирования строк (r)',
         columnScalingFactors: 'Коэффициенты масштабирования столбцов (c)',
         reconstructionFormula: 'Восстановление: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])',
-        reconstructionTooltip: 'Для восстановления исходной матрицы: разделить дважды стохастическую матрицу на r[i] и c[j]'
+        reconstructionTooltip: 'Для восстановления исходной матрицы: разделить дважды стохастическую матрицу на r[i] и c[j]',
+        answerInfo: 'Количество информации, которую даёт ответ классификатора (в битах). Больше — информативнее; 0 бит — нет информации.'
       }
     }
   }

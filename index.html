@@ -975,7 +975,9 @@ Higher α values = more smoothing = more conservative estimates">
             if (labelTexts.length >= 3) {
                 labelTexts[0].textContent = t('includeRowColumnSums');
                 labelTexts[1].textContent = t('includeAnswerInfo');
-                labelTexts[1].parentElement?.setAttribute?.('data-tooltip', t('tooltips.answerInfo'));
+                // Compose detailed tooltip for the toggle
+                const toggleTooltip = t('tooltips.answerInfo') + '\n\n' + t('tooltips.answerInfoMethod') + '\n\n' + t('tooltips.answerInfoMaxMethod');
+                labelTexts[1].parentElement?.setAttribute?.('data-tooltip', toggleTooltip);
                 labelTexts[2].textContent = t('additiveSmoothing');
             }
             const smoothingToggle = document.querySelector('.toggle-switch[data-tooltip]');
@@ -1565,8 +1567,33 @@ Higher α values = more smoothing = more conservative estimates">
                 // Info row header
                 const info_row_header = document.createElement('th');
                 info_row_header.className = 'row-header';
-                info_row_header.textContent = t('answerInfoLabel');
-                info_row_header.setAttribute('data-tooltip', t('tooltips.answerInfo'));
+                // Compute theoretical maximum info per answer: max_Q D_KL(Q || P(true)) = log2(1 / min P(true))
+                let max_info_bits = 0;
+                if (total_sum > 0) {
+                    const row_marginals_for_max = row_sums.map(function(sum_val) { return sum_val / total_sum; });
+                    const positive_priors = row_marginals_for_max.filter(function(p) { return p > 0; });
+                    if (positive_priors.length > 0) {
+                        const min_prior = Math.min.apply(null, positive_priors);
+                        max_info_bits = (min_prior > 0) ? Math.log2(1 / min_prior) : Infinity;
+                    } else {
+                        max_info_bits = 0;
+                    }
+                }
+                const is_finite_max = Number.isFinite(max_info_bits);
+                const max_suffix = (function() {
+                    const maxShort = t('tooltips.maxShortPrefix');
+                    const bitsWord = t('tooltips.bitsWord');
+                    return is_finite_max ? '(' + maxShort + ' ' + max_info_bits.toFixed(3) + ' ' + bitsWord + ')' : '(' + maxShort + ' ∞)';
+                })();
+                // Split into two lines for readability
+                info_row_header.innerHTML = t('answerInfoLabel') + '<br>' + max_suffix;
+                const tooltip_with_max = (function() {
+                    const base = t('tooltips.answerInfo') + '\n\n' + t('tooltips.answerInfoMethod') + '\n\n' + t('tooltips.answerInfoMaxMethod');
+                    const maxPrefix = t('tooltips.answerInfoMaxPrefix');
+                    const bitsWord = t('tooltips.bitsWord');
+                    return base + (is_finite_max ? '\n' + maxPrefix + max_info_bits.toFixed(3) + ' ' + bitsWord : '\n' + maxPrefix + '∞');
+                })();
+                info_row_header.setAttribute('data-tooltip', tooltip_with_max);
                 info_row_header.style.backgroundColor = '#e3f2fd';
                 info_row_header.style.fontWeight = 'bold';
                 info_row_header.style.borderTop = '2px solid #90caf9';

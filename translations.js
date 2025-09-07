@@ -6,7 +6,7 @@ window.LANGUAGES = {
       pageSubtitle: 'Paste your tab-separated table data and visualize it as a color-coded confusion matrix',
       inputDataTitle: 'Input Data',
       inputPlaceholder: 'Paste your table here (tab or space separated)...\nExample:\nGiraffe\tRhino\tCrab\n360\t12\t24\n4\t200\t2\n100\t60\t3000',
-      exampleData: 'Giraffe\tRhino\tCrab\tFox\tAnt\n360\t12\t24\t18\t6\n4\t200\t2\t8\t2\n100\t60\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t700\t2000\t1000\t100000',
+      exampleData: 'Giraffe\tRhino\tCrab\tFox\tAnt\n360\t12\t24\t18\t6\n2\t240\t2\t4\t2\n100\t40\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t10\t2000\t1000\t100000',
       generateButton: 'Visualize',
       normalizationTitle: 'Normalization Options',
       normOriginal: 'Original (No normalization)',
@@ -41,7 +41,7 @@ window.LANGUAGES = {
         tracePerClass: 'Trace/n_classes',
         tracePerClassTip: 'Average accuracy per class (trace divided by number of classes)',
         mi: 'Mutual Information',
-        miTip: 'MI = ∑∑ P(x,y) × log₂(P(x,y) / (P(x)×P(y))) - dependence between predicted and actual classes (bits)',
+        miTip: 'Expected information gained from classifier answers.\nFormula: MI = ∑_j P(Pred=j) × [ ∑_i P(True=i | Pred=j) × log₂( P(True=i | Pred=j) / P(True=i) ) ] (bits)',
         nmi: 'Normalized MI',
         nmiTip: 'NMI = MI / √(H(X) × H(Y)) - geometric mean normalization, range [0,1]'
       },
@@ -56,19 +56,24 @@ window.LANGUAGES = {
       tooltips: {
         original: 'Original confusion matrix showing raw counts or frequencies.\n\nInterpretation:\n• Each cell [i,j] = number of instances where true class was i and predicted class was j\n• Row sums = total instances per true class\n• Column sums = total instances per predicted class\n• Diagonal elements = correctly classified instances\n• Off-diagonal elements = misclassifications\n\nUse when: You want to see absolute numbers and class imbalances.',
         rowNorm: 'Row-normalized matrix showing conditional probabilities P(Predicted | True).\n\nInterpretation:\n• Each cell [i,j] = probability of predicting class j given true class i\n• Each row sums to 1.0 (probability distribution)\n• Diagonal elements = per-class recall (sensitivity)\n• Off-diagonal elements = per-class confusion rates\n• Removes class imbalance effects\n\nUse when: You want to analyze classifier performance per true class, compare recall across classes, or when classes have different frequencies.\n\nExample: Cell [Cat, Dog] = 0.15 means 15% of cats were misclassified as dogs.',
-        columnNorm: 'Column-normalized matrix showing conditional probabilities P(True | Predicted).\n\nInterpretation:\n• Each cell [i,j] = probability that true class is i given prediction j\n• Each column sums to 1.0 (probability distribution)\n• Diagonal elements = per-class precision (positive predictive value)\n• Off-diagonal elements = per-prediction confusion rates\n• Shows reliability of predictions\n\nIMPORTANT: These are true posterior probabilities P(True | Predicted) ONLY if the test samples come from the same distribution as the data used to create this confusion matrix.\n\nUse when: You want to analyze prediction reliability under the assumption that future data matches current test distribution.\n\nExample: Cell [Cat, Dog] = 0.20 means 20% of \u2018Dog\u2019 predictions were actually cats (in this dataset).',
+        columnNorm: 'Column-normalized matrix showing conditional probabilities P(True | Predicted).\n\nInterpretation:\n• Each cell [i,j] = probability that true class is i given prediction j\n• Each column sums to 1.0 (probability distribution)\n• Diagonal elements = per-class precision (positive predictive value)\n• Off-diagonal elements = per-prediction confusion rates\n• Shows reliability of predictions\n\nIMPORTANT: These are true posterior probabilities P(True | Predicted) ONLY if the test samples come from the same distribution as the data used to create this confusion matrix.\n\nUse when: You want to analyze prediction reliability under the assumption that future data matches current test distribution.\n\nExample: Cell [Cat, Dog] = 0.20 means 20% of ‘Dog’ predictions were actually cats (in this dataset).',
         rowColumnNorm: 'Sequential normalization: first by rows, then by columns.\n\nInterpretation:\n• Step 1: Row normalization creates P(Predicted | True)\n• Step 2: Column normalization creates posterior probabilities P(True | Predicted) under uniform prior\n• Columns sum to 1.0 (posterior probability distributions)\n• Rows do not sum to 1.0 (balanced by uniform prior assumption)\n• Represents Bayesian inference assuming equal class priors\n\nUse when: You want posterior probabilities assuming uniform class distribution, remove original class frequency bias, or analyze classifier output under balanced prior assumptions.\n\nBayesian interpretation: Converts classifier outputs to posterior probabilities assuming P(True class) is uniform across all classes.',
         sinkhornNorm: 'Doubly stochastic matrix via iterative Sinkhorn-Knopp algorithm.\n\nInterpretation:\n• Each row AND each column sums to 1.0 simultaneously\n• Creates a balanced joint probability distribution P(True, Predicted)\n• Preserves relative confusion patterns while removing all bias\n• Converges to optimal transport solution\n• Matrix may not be symmetric (asymmetry has meaning)\n\nUse when: You want to analyze pure confusion patterns without any class frequency or prediction bias effects, study classifier behavior in idealized balanced scenarios.\n\nMathematical: Finds row scaling r and column scaling c such that diag(r) × Original × diag(c) is doubly stochastic.\n\nAsymmetry interpretation: Reflects inherent directional confusion patterns between classes.',
-        sumNorm: 'Matrix normalized by total sum, creating a joint probability distribution.\n\nInterpretation:\n• Each cell [i,j] = P(True=i AND Predicted=j)\n• All cells sum to 1.0 (complete probability space)\n• Diagonal elements = P(correct classification)\n• Off-diagonal elements = P(specific misclassification types)\n• Preserves original class frequency information\n\nUse when: You want to analyze the overall probability distribution of classification outcomes, study the likelihood of specific confusion types, or maintain class frequency relationships.\n\nExample: Cell [Cat, Dog] = 0.05 means 5% of all classifications are \u2018cats predicted as dogs\u2019.',
+        sumNorm: 'Matrix normalized by total sum, creating a joint probability distribution.\n\nInterpretation:\n• Each cell [i,j] = P(True=i AND Predicted=j)\n• All cells sum to 1.0 (complete probability space)\n• Diagonal elements = P(correct classification)\n• Off-diagonal elements = P(specific misclassification types)\n• Preserves original class frequency information\n\nUse when: You want to analyze the overall probability distribution of classification outcomes, study the likelihood of specific confusion types, or maintain class frequency relationships.\n\nExample: Cell [Cat, Dog] = 0.05 means 5% of all classifications are ‘cats predicted as dogs’.',
         smoothingToggle: 'Additive smoothing (Laplace smoothing) adds pseudocounts to handle zero probabilities and improve estimates:\n\n• Essential for epistemologically correct probabilities estimation\n• Prevents division by zero in probability calculations\n• Provides more robust statistical estimates\n• Essential for reliable mutual information computation\n• Recommended for sparse confusion matrices\n\nThe α parameter controls the amount of smoothing applied.',
-        alphaParam: 'Alpha parameter (pseudocounts added to each cell):\n\nα = 0.5 (Jeffrey\u2019s Prior - RECOMMENDED):\n• Non-informative Bayesian prior for Dirichlet distribution\n• Scale-invariant and transformation-invariant\n• Minimal bias while handling zero counts\n• Theoretically optimal for unknown distributions\n\nα = 1.0 (Laplace\u2019s Rule of Succession):\n• Uniform prior assuming all outcomes equally likely\n• Classic approach, easy to interpret\n• Good when no prior knowledge exists\n• Adds exactly 1 pseudocount per cell\n\nα = 0 (No smoothing):\n• Uses original counts without modification\n• May cause issues with zero entries\n\nHigher α values = more smoothing = more conservative estimates',
+        alphaParam: 'Alpha parameter (pseudocounts added to each cell):\n\nα = 0.5 (Jeffrey’s Prior - RECOMMENDED):\n• Non-informative Bayesian prior for Dirichlet distribution\n• Scale-invariant and transformation-invariant\n• Minimal bias while handling zero counts\n• Theoretically optimal for unknown distributions\n\nα = 1.0 (Laplace’s Rule of Succession):\n• Uniform prior assuming all outcomes equally likely\n• Classic approach, easy to interpret\n• Good when no prior knowledge exists\n• Adds exactly 1 pseudocount per cell\n\nα = 0 (No smoothing):\n• Uses original counts without modification\n• May cause issues with zero entries\n\nHigher α values = more smoothing = more conservative estimates',
         rasTitle: 'RAS Decomposition (Row And column Scaling)',
         rasTooltip: 'RAS Decomposition: DoublyStochastic = diag(r) × Original × diag(c)',
         rowScalingFactors: 'Row Scaling Factors (r)',
         columnScalingFactors: 'Column Scaling Factors (c)',
         reconstructionFormula: 'Reconstruction: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])',
         reconstructionTooltip: 'To reconstruct original matrix: divide doubly stochastic by both r[i] and c[j]',
-        answerInfo: 'The amount of information provided by the classifier\'s answer (in bits). Higher = more informative; 0 bits = no information.'
+        answerInfo: 'The amount of information provided by the classifier\'s answer (in bits). Higher = more informative; 0 bits = no information.',
+        answerInfoMethod: 'Calculation method:\nFor each predicted class j:\nI(True; Predicted=j) = ∑ P(True=i | Predicted=j) × log₂( P(True=i | Predicted=j) / P(True=i) )\nHere P(True=i) is the prior (row marginal), estimated from the confusion matrix (with smoothing if enabled). Units: bits.',
+        answerInfoMaxMethod: 'Max method:\nI_max = max_Q D_KL(Q || P(True)) = log₂(1 / min_i P(True=i)).\nWe estimate P(True) from row marginals (with smoothing if enabled). If some prior is 0, I_max = ∞.',
+        answerInfoMaxPrefix: 'Theoretical maximum: ',
+        maxShortPrefix: 'max: ',
+        bitsWord: 'bits'
       }
     }
   },
@@ -79,7 +84,7 @@ window.LANGUAGES = {
       pageSubtitle: 'Вставьте таблицу и визуализируйте её как матрицу ошибок с цветовой заливкой',
       inputDataTitle: 'Входные данные',
       inputPlaceholder: 'Вставьте сюда таблицу (разделители — табы или пробелы)...\nПример:\nЖираф\tНосорог\tКраб\n360\t12\t24\n4\t200\t2\n100\t60\t3000',
-      exampleData: 'Жираф\tНосорог\tКраб\tЛиса\tМуравей\n360\t12\t24\t18\t6\n4\t200\t2\t8\t2\n100\t60\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t700\t2000\t1000\t100000',
+      exampleData: 'Жираф\tНосорог\tКраб\tЛиса\tМуравей\n360\t12\t24\t18\t6\n2\t240\t2\t4\t2\n100\t40\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t10\t2000\t1000\t100000',
       generateButton: 'Визуализировать',
       normalizationTitle: 'Опции нормализации',
       normOriginal: 'Оригинальная (без нормализации)',
@@ -114,7 +119,7 @@ window.LANGUAGES = {
         tracePerClass: 'След/число_классов',
         tracePerClassTip: 'Средняя точность по классам (след / число классов)',
         mi: 'Взаимная информация',
-        miTip: 'MI = ∑∑ P(x,y) × log₂(P(x,y) / (P(x)×P(y))) — зависимость между истинными и предсказанными классами (в битах)',
+        miTip: 'Математическое ожидание информации, получаемой от ответов классификатора.\nФормула: MI = ∑_j P(Предсказан=j) × [ ∑_i P(Истинный=i | Предсказан=j) × log₂( P(Истинный=i | Предсказан=j) / P(Истинный=i) ) ] (в битах)',
         nmi: 'Нормированная MI',
         nmiTip: 'NMI = MI / √(H(X) × H(Y)) — нормализация геометрическим средним, диапазон [0,1]'
       },
@@ -141,7 +146,12 @@ window.LANGUAGES = {
         columnScalingFactors: 'Коэффициенты масштабирования столбцов (c)',
         reconstructionFormula: 'Восстановление: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])',
         reconstructionTooltip: 'Для восстановления исходной матрицы: разделить дважды стохастическую матрицу на r[i] и c[j]',
-        answerInfo: 'Количество информации, которую даёт ответ классификатора (в битах). Больше — информативнее; 0 бит — нет информации.'
+        answerInfo: 'Количество информации, которую даёт ответ классификатора (в битах). Больше — информативнее; 0 бит — нет информации.',
+        answerInfoMethod: 'Метод вычисления:\nДля каждого предсказанного класса j:\nI(True; Predicted=j) = ∑ P(True=i | Predicted=j) × log₂( P(True=i | Predicted=j) / P(True=i) )\nЗдесь P(True=i) — априорные вероятности (строковые маргиналы), оценённые по матрице ошибок (с учётом сглаживания, если включено). Единицы измерения: биты.',
+        answerInfoMaxMethod: 'Метод вычисления максимума:\nI_max = max_Q D_KL(Q || P(True)) = log₂(1 / min_i P(True=i)).\nP(True) берётся из строковых маргиналов (с учётом сглаживания, если включено). Если есть нулевые априори, I_max = ∞.',
+        answerInfoMaxPrefix: 'Теоретический максимум: ',
+        maxShortPrefix: 'макс: ',
+        bitsWord: 'бит'
       }
     }
   }

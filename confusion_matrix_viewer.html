@@ -206,20 +206,32 @@
         .matrix-controls {
             display: flex;
             flex-wrap: wrap;
-            gap: 20px;
-            align-items: center;
-            justify-content: space-between;
+            gap: 15px;
             margin-bottom: 20px;
-            padding: 15px;
+            padding: 20px;
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             border-radius: 8px;
             border: 1px solid #dee2e6;
+            align-items: flex-start;
+            justify-content: flex-start;
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow: visible;
+            position: relative;
         }
 
         .control-group {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+            flex: 0 1 auto;
+            min-width: 160px;
+            max-width: 220px;
+            min-height: 70px;
+            position: relative;
+            overflow: visible;
+            justify-content: flex-start;
         }
 
         .control-group label {
@@ -230,9 +242,10 @@
 
         .toggle-switch {
             position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
         }
 
         .toggle-switch input {
@@ -242,15 +255,14 @@
         }
 
         .slider {
-            position: absolute;
+            position: relative;
             cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            width: 50px;
+            height: 24px;
             background-color: #ccc;
             transition: 0.3s;
             border-radius: 24px;
+            flex-shrink: 0;
         }
 
         .slider:before {
@@ -274,14 +286,18 @@
         }
 
         .label-text {
-            margin-left: 10px;
+            margin: 0;
             font-size: 14px;
+            font-weight: 500;
             color: #495057;
+            flex-grow: 1;
         }
 
         .view-mode-buttons {
             display: flex;
             gap: 5px;
+            width: 100%;
+            max-width: 100%;
         }
 
         .view-btn {
@@ -294,6 +310,9 @@
             font-size: 14px;
             font-weight: 500;
             transition: all 0.3s ease;
+            flex: 1;
+            text-align: center;
+            min-width: 0;
         }
 
         .view-btn:hover {
@@ -311,12 +330,18 @@
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 10px 15px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             transition: all 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .download-btn:hover {
@@ -361,12 +386,14 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-left: 15px;
-            padding: 5px 10px;
+            margin: 0;
+            padding: 8px 12px;
             background: white;
             border: 1px solid #dee2e6;
-            border-radius: 15px;
+            border-radius: 8px;
             transition: all 0.3s ease;
+            width: fit-content;
+            position: relative;
         }
 
         .alpha-input-group label {
@@ -521,6 +548,11 @@
             margin-bottom: -5px;
         }
 
+        /* Tooltips handled by JavaScript - CSS tooltips disabled */
+        [data-tooltip]:hover {
+            cursor: help;
+        }
+
         .stat-box h3 {
             color: #495057;
             font-size: 0.9em;
@@ -558,12 +590,22 @@
             .matrix-controls {
                 flex-direction: column;
                 gap: 15px;
-                align-items: stretch;
+                padding: 15px;
             }
             
             .control-group {
-                justify-content: center;
-                flex-wrap: wrap;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                min-height: auto;
+                min-width: auto;
+                max-width: 100%;
+                width: 100%;
+            }
+            
+            .toggle-switch {
+                width: auto;
+                justify-content: space-between;
             }
             
             .normalization-controls {
@@ -655,14 +697,40 @@
                     </div>
                     
                     <div class="control-group">
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="use-smoothing">
+                        <label class="toggle-switch" data-tooltip="Additive smoothing (Laplace smoothing) adds pseudocounts to handle zero probabilities and improve estimates:
+
+• Essential for epistemologically correct probabilities estimation
+• Prevents division by zero in probability calculations
+• Provides more robust statistical estimates
+• Essential for reliable mutual information computation
+• Recommended for sparse confusion matrices
+
+The α parameter controls the amount of smoothing applied.">
+                            <input type="checkbox" id="use-smoothing" checked>
                             <span class="slider"></span>
                             <span class="label-text">Additive smoothing</span>
                         </label>
-                        <div class="alpha-input-group" id="alpha-input-group" style="display: none;">
+                        <div class="alpha-input-group" id="alpha-input-group" style="display: flex;">
                             <label for="alpha-value">α =</label>
-                            <input type="number" id="alpha-value" min="0" max="10" step="0.1" value="0.5" title="Alpha parameter for additive smoothing (pseudocounts added to each cell before normalization):&#10;• α = 0.5: Jeffrey's prior for Dirichlet distribution (recommended)&#10;• α = 1.0: Uniform prior (Laplace's rule of succession)&#10;• α = 0: No smoothing (original counts)&#10;&#10;Smoothing helps with zero counts and provides better probability estimates.">
+                            <input type="number" id="alpha-value" min="0" max="10" step="0.1" value="0.5" data-tooltip="Alpha parameter (pseudocounts added to each cell):
+
+α = 0.5 (Jeffrey's Prior - RECOMMENDED):
+• Non-informative Bayesian prior for Dirichlet distribution
+• Scale-invariant and transformation-invariant
+• Minimal bias while handling zero counts
+• Theoretically optimal for unknown distributions
+
+α = 1.0 (Laplace's Rule of Succession):
+• Uniform prior assuming all outcomes equally likely
+• Classic approach, easy to interpret
+• Good when no prior knowledge exists
+• Adds exactly 1 pseudocount per cell
+
+α = 0 (No smoothing):
+• Uses original counts without modification
+• May cause issues with zero entries
+
+Higher α values = more smoothing = more conservative estimates">
                         </div>
                     </div>
                     
@@ -1927,6 +1995,9 @@
                 document.getElementById('normalization-section').style.display = 'block';
                 document.getElementById('matrix-controls').style.display = 'flex';
                 
+                // Re-initialize tooltips for newly shown controls
+                initializeTooltips();
+                
                 // Get selected normalization type and options
                 const selected_normalization = document.querySelector('input[name="normalization"]:checked').value;
                 const include_sums = document.getElementById('include-sums').checked;
@@ -2068,6 +2139,58 @@
         // Make test function available globally for debugging
         window.runParserTests = runParserTests;
 
+        /**
+         * Initialize custom tooltips for elements with data-tooltip attribute
+         */
+        function initializeTooltips() {
+            // Remove any existing tooltips
+            const existing_tooltips = document.querySelectorAll('.custom-tooltip');
+            existing_tooltips.forEach(tooltip => tooltip.remove());
+            
+            // Find all elements with data-tooltip
+            const tooltip_elements = document.querySelectorAll('[data-tooltip]');
+            
+            tooltip_elements.forEach(element => {
+                element.addEventListener('mouseenter', function(event) {
+                    // Create tooltip element
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'custom-tooltip';
+                    tooltip.textContent = this.getAttribute('data-tooltip');
+                    
+                    // Style the tooltip
+                    Object.assign(tooltip.style, {
+                        position: 'fixed',
+                        background: '#333',
+                        color: 'white',
+                        padding: '12px 16px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        lineHeight: '1.4',
+                        whiteSpace: 'pre-line',
+                        zIndex: '9999',
+                        opacity: '0.95',
+                        maxWidth: '320px',
+                        textAlign: 'left',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                        pointerEvents: 'none'
+                    });
+                    
+                    // Position tooltip near mouse
+                    const rect = this.getBoundingClientRect();
+                    tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                    tooltip.style.top = (rect.top - 10) + 'px';
+                    tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+                    
+                    document.body.appendChild(tooltip);
+                });
+                
+                element.addEventListener('mouseleave', function() {
+                    const tooltips = document.querySelectorAll('.custom-tooltip');
+                    tooltips.forEach(tooltip => tooltip.remove());
+                });
+            });
+        }
+
         window.addEventListener('load', function() {
             const run_tests = false;
             
@@ -2076,6 +2199,9 @@
                 console.log('Running parser tests...');
                 runParserTests();
             }
+            
+            // Initialize tooltips
+            initializeTooltips();
             
             const example_data = `Жираф	Носорог	Краб	Лиса	Муравей
 360	12	24	18	6

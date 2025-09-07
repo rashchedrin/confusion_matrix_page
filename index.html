@@ -980,7 +980,8 @@ Higher α values = more smoothing = more conservative estimates">
                 labelTexts[1].parentElement?.setAttribute?.('data-tooltip', toggleTooltip);
                 labelTexts[2].textContent = t('additiveSmoothing');
             }
-            const smoothingToggle = document.querySelector('.toggle-switch[data-tooltip]');
+            const smoothingInput = document.getElementById('use-smoothing');
+            const smoothingToggle = smoothingInput ? smoothingInput.parentElement : null;
             if (smoothingToggle) smoothingToggle.setAttribute('data-tooltip', t('tooltips.smoothingToggle'));
             const alphaInput = document.getElementById('alpha-value');
             if (alphaInput) alphaInput.setAttribute('data-tooltip', t('tooltips.alphaParam'));

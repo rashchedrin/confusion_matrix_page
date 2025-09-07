@@ -592,6 +592,92 @@
             cursor: help;
         }
 
+        /* Mobile-specific adjustments */
+        @media (hover: none) {
+            [data-tooltip] {
+                cursor: default;
+            }
+        }
+
+        /* Horizontal scroll for wide matrices */
+        #matrix-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #matrix-container table {
+            width: max-content;
+            max-width: none;
+        }
+
+        /* Info button for mobile */
+        .info-btn {
+            display: inline-flex;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #1976d2;
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            align-items: center;
+            justify-content: center;
+            margin-left: 6px;
+            line-height: 1;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* Fullscreen modal for tooltip content on mobile */
+        .mobile-info-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 10000;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+        }
+        .mobile-info-modal .modal-content {
+            background: #fff;
+            color: #212529;
+            width: 100%;
+            max-width: 680px;
+            height: 100%;
+            overflow: auto;
+            padding: 16px 20px 24px;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .mobile-info-modal .modal-header {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e9ecef;
+            z-index: 1;
+        }
+        .mobile-info-modal .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+            color: #343a40;
+        }
+        .mobile-info-modal .close-btn {
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            line-height: 1;
+            cursor: pointer;
+            color: #495057;
+        }
+
         .stat-box h3 {
             color: #495057;
             font-size: 0.9em;
@@ -2316,6 +2402,8 @@ Higher α values = more smoothing = more conservative estimates">
                 renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
                 renderTextView(parsed_data, selected_normalization, include_sums);
                 displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha);
+                // Ensure tooltips/info buttons applied to newly rendered elements
+                initializeTooltips();
                 
                 // Show decomposition only for Sinkhorn-Knopp normalization
                 if (selected_normalization === 'sinkhorn_knopp') {
@@ -2356,6 +2444,8 @@ Higher α values = more smoothing = more conservative estimates">
                 renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
                 renderTextView(parsed_data, selected_normalization, include_sums);
                 displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha);
+                // Re-apply tooltips/info buttons for updated DOM
+                initializeTooltips();
                 
                 // Show decomposition only for Sinkhorn-Knopp normalization
                 if (selected_normalization === 'sinkhorn_knopp') {
@@ -2456,46 +2546,85 @@ Higher α values = more smoothing = more conservative estimates">
             
             // Find all elements with data-tooltip
             const tooltip_elements = document.querySelectorAll('[data-tooltip]:not(.stat-box)');
+            const isMobile = matchMedia('(hover: none), (pointer: coarse)').matches;
             
             tooltip_elements.forEach(element => {
-                element.addEventListener('mouseenter', function(event) {
-                    // Create tooltip element
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'custom-tooltip';
-                    tooltip.textContent = this.getAttribute('data-tooltip');
-                    
-                    // Style the tooltip
-                    Object.assign(tooltip.style, {
-                        position: 'fixed',
-                        background: '#333',
-                        color: 'white',
-                        padding: '16px 20px',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        lineHeight: '1.5',
-                        whiteSpace: 'pre-line',
-                        zIndex: '9999',
-                        opacity: '0.95',
-                        maxWidth: '400px',
-                        textAlign: 'left',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                        pointerEvents: 'none',
-                        fontFamily: 'system-ui, -apple-system, sans-serif'
+                // Clean previous handlers/info buttons
+                element.removeEventListener?.('mouseenter', element._ttEnter || (() => {}));
+                element.removeEventListener?.('mouseleave', element._ttLeave || (() => {}));
+                const oldBtn = element.querySelector('.info-btn');
+                if (oldBtn) oldBtn.remove();
+
+                if (!isMobile) {
+                    const enter = function() {
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'custom-tooltip';
+                        tooltip.textContent = this.getAttribute('data-tooltip');
+                        Object.assign(tooltip.style, {
+                            position: 'fixed',
+                            background: '#333',
+                            color: 'white',
+                            padding: '16px 20px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            lineHeight: '1.5',
+                            whiteSpace: 'pre-line',
+                            zIndex: '9999',
+                            opacity: '0.95',
+                            maxWidth: '400px',
+                            textAlign: 'left',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                            pointerEvents: 'none',
+                            fontFamily: 'system-ui, -apple-system, sans-serif'
+                        });
+                        const rect = this.getBoundingClientRect();
+                        tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                        tooltip.style.top = (rect.top - 10) + 'px';
+                        tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+                        document.body.appendChild(tooltip);
+                    };
+                    const leave = function() {
+                        const tooltips = document.querySelectorAll('.custom-tooltip');
+                        tooltips.forEach(tooltip => tooltip.remove());
+                    };
+                    element._ttEnter = enter;
+                    element._ttLeave = leave;
+                    element.addEventListener('mouseenter', enter);
+                    element.addEventListener('mouseleave', leave);
+                } else {
+                    const infoBtn = document.createElement('span');
+                    infoBtn.className = 'info-btn';
+                    infoBtn.textContent = 'i';
+                    infoBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const modal = document.createElement('div');
+                        modal.className = 'mobile-info-modal';
+                        const content = document.createElement('div');
+                        content.className = 'modal-content';
+                        const header = document.createElement('div');
+                        header.className = 'modal-header';
+                        const title = document.createElement('h3');
+                        title.className = 'modal-title';
+                        title.textContent = element.textContent?.trim() || 'Info';
+                        const closeBtn = document.createElement('button');
+                        closeBtn.className = 'close-btn';
+                        closeBtn.textContent = '×';
+                        closeBtn.addEventListener('click', function() { modal.remove(); });
+                        header.appendChild(title);
+                        header.appendChild(closeBtn);
+                        const body = document.createElement('div');
+                        body.style.whiteSpace = 'pre-wrap';
+                        body.style.fontSize = '14px';
+                        body.style.lineHeight = '1.6';
+                        body.textContent = element.getAttribute('data-tooltip') || '';
+                        content.appendChild(header);
+                        content.appendChild(body);
+                        modal.appendChild(content);
+                        modal.addEventListener('click', function(ev) { if (ev.target === modal) modal.remove(); });
+                        document.body.appendChild(modal);
                     });
-                    
-                    // Position tooltip near mouse
-                    const rect = this.getBoundingClientRect();
-                    tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-                    tooltip.style.top = (rect.top - 10) + 'px';
-                    tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
-                    
-                    document.body.appendChild(tooltip);
-                });
-                
-                element.addEventListener('mouseleave', function() {
-                    const tooltips = document.querySelectorAll('.custom-tooltip');
-                    tooltips.forEach(tooltip => tooltip.remove());
-                });
+                    element.appendChild(infoBtn);
+                }
             });
         }
 

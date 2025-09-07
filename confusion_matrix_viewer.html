@@ -1,0 +1,2009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confusion Matrix Viewer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        #table-input {
+            width: 100%;
+            height: 150px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        #table-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-container {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        #parse-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        #parse-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        #parse-button:active {
+            transform: translateY(0);
+        }
+
+        .matrix-section {
+            margin-top: 30px;
+        }
+
+        .matrix-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+        }
+
+        .confusion-matrix {
+            margin: 0 auto;
+            border-collapse: collapse;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .confusion-matrix th {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #495057;
+            padding: 12px 15px;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid #dee2e6;
+            font-size: 14px;
+        }
+
+        .confusion-matrix th.corner {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+
+        .confusion-matrix th.row-header {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .confusion-matrix td {
+            padding: 12px 15px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+            font-weight: 500;
+            font-size: 13px;
+            color: #333;
+            min-width: 80px;
+        }
+
+        .normalization-section {
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .normalization-section h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .normalization-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 10px 15px;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+
+        .radio-option:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .radio-option input[type="radio"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+
+        .radio-option input[type="radio"]:checked + span {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .radio-option:has(input[type="radio"]:checked) {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        }
+
+        .matrix-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .label-text {
+            margin-left: 10px;
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .view-mode-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .view-btn {
+            padding: 8px 16px;
+            border: 2px solid #dee2e6;
+            background: white;
+            color: #495057;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .view-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .view-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .text-view-container {
+            margin-bottom: 20px;
+        }
+
+        .text-view-content {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .copy-text-btn {
+            margin-top: 10px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s ease;
+        }
+
+        .copy-text-btn:hover {
+            background: #5a6268;
+        }
+
+        .decomposition-container {
+            margin: 20px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 1px solid #90caf9;
+            border-radius: 8px;
+        }
+
+        .decomposition-title {
+            color: #1565c0;
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .decomposition-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .scaling-section {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #90caf9;
+        }
+
+        .scaling-section h4 {
+            color: #1565c0;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .scaling-values {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .scaling-item {
+            background: #f8f9fa;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .scaling-item .label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .scaling-item .value {
+            color: #1565c0;
+            margin-left: 5px;
+        }
+
+        .reconstruction-formula {
+            grid-column: 1 / -1;
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #ffb74d;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #e65100;
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .stats-container {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+            position: relative;
+            cursor: help;
+        }
+
+        .stat-box[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            opacity: 0.95;
+            margin-bottom: 5px;
+        }
+
+        .stat-box[data-tooltip]:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #333;
+            margin-bottom: -5px;
+        }
+
+        .stat-box h3 {
+            color: #495057;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-box .value {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 5px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .confusion-matrix {
+                font-size: 12px;
+            }
+            
+            .confusion-matrix th,
+            .confusion-matrix td {
+                padding: 8px 10px;
+                min-width: 60px;
+            }
+            
+            .matrix-controls {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+            
+            .control-group {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .normalization-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .radio-option {
+                min-width: auto;
+                justify-content: center;
+            }
+            
+            .decomposition-content {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .scaling-values {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Confusion Matrix Viewer</h1>
+            <p>Paste your tab-separated table data and visualize it as a color-coded confusion matrix</p>
+        </div>
+        
+        <div class="content">
+            <div class="input-section">
+                <h2>Input Data</h2>
+                <textarea id="table-input" placeholder="Paste your table here (tab or space separated)...&#10;Example:&#10;Class1	Class2	Class3&#10;0.85	0.10	0.05&#10;0.15	0.80	0.05&#10;0.05	0.15	0.80"></textarea>
+                <div class="button-container">
+                    <button id="parse-button">Generate Confusion Matrix</button>
+                </div>
+                
+                <div class="normalization-section" id="normalization-section" style="display: none;">
+                    <h3>Normalization Options</h3>
+                    <div class="normalization-controls">
+                        <label class="radio-option">
+                            <input type="radio" name="normalization" value="none" checked>
+                            <span>Original (No normalization)</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="normalization" value="row">
+                            <span>Row normalized</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="normalization" value="column">
+                            <span>Column normalized</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="normalization" value="row_then_column">
+                            <span>Row then column normalized</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="normalization" value="sinkhorn_knopp">
+                            <span>Sinkhorn-Knopp normalized</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="normalization" value="sum">
+                            <span>Sum normalized</span>
+                        </label>
+                    </div>
+                </div>
+                <div id="error-message" class="error-message"></div>
+            </div>
+            
+            <div class="matrix-section">
+                <h2 id="matrix-title">Confusion Matrix</h2>
+                
+                <div class="matrix-controls" id="matrix-controls" style="display: none;">
+                    <div class="control-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="include-sums" checked>
+                            <span class="slider"></span>
+                            <span class="label-text">Include row/column sums</span>
+                        </label>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="include-info" checked>
+                            <span class="slider"></span>
+                            <span class="label-text">Include answer information</span>
+                        </label>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>View Mode:</label>
+                        <div class="view-mode-buttons">
+                            <button id="table-view-btn" class="view-btn active">Table View</button>
+                            <button id="text-view-btn" class="view-btn">Tab-separated Text</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <button id="download-csv-btn" class="download-btn">Download as CSV</button>
+                    </div>
+                </div>
+                
+                <div id="matrix-container"></div>
+                <div id="text-view-container" class="text-view-container" style="display: none;"></div>
+                <div id="decomposition-container" class="decomposition-container" style="display: none;"></div>
+                <div id="stats-container" class="stats-container" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Tests the table parser with various input formats
+         * @returns {boolean} True if all tests pass
+         */
+        function runParserTests() {
+            const tests = [
+                {
+                    name: "Tab-separated with Russian labels",
+                    input: `Жираф\tНосорог\tКраб\n1\t0\t0\n0\t1\t0\n0\t0\t1`,
+                    expected: { rows: 3, cols: 3 }
+                },
+                {
+                    name: "Space-separated with Russian labels",
+                    input: `Жираф Носорог Краб\n1 0 0\n0 1 0\n0 0 1`,
+                    expected: { rows: 3, cols: 3 }
+                },
+                {
+                    name: "User's failing case (header tabs, data spaces)",
+                    input: `Жираф\tНосорог\tКраб\t\n1    0    0\n0    1    0  \n0    0    1`,
+                    expected: { rows: 3, cols: 3 }
+                },
+                {
+                    name: "Mixed separators per line (tabs and spaces)",
+                    input: `A\tB\tC\n1 2 3\n4\t5\t6`,
+                    expected: { rows: 2, cols: 3 }
+                },
+                {
+                    name: "Pure space-separated (no tabs)",
+                    input: `Жираф Носорог Краб \n1 0 0\n0 1 0  \n0 0 1`,
+                    expected: { rows: 3, cols: 3 }
+                },
+                {
+                    name: "Multiple spaces",
+                    input: `Class1    Class2    Class3\n0.85      0.10      0.05\n0.15      0.80      0.05`,
+                    expected: { rows: 2, cols: 3 }
+                },
+                {
+                    name: "Tab with trailing whitespace",
+                    input: `Жираф\tНосорог\tКраб\t\n1\t0\t0\n0\t1\t0\n0\t0\t1`,
+                    expected: { rows: 3, cols: 3 }
+                },
+                {
+                    name: "Mixed tab and space (should use tab)",
+                    input: `A\tB C\tD\n1\t2 3\t4\n5\t6 7\t8`,
+                    expected: { rows: 2, cols: 3 }
+                },
+                {
+                    name: "Comma decimals",
+                    input: `A B C\n0,85 0,10 0,05\n0,15 0,80 0,05`,
+                    expected: { rows: 2, cols: 3 }
+                },
+                {
+                    name: "Empty trailing cells (tabs)",
+                    input: `A\tB\tC\t\n1\t2\t3\t\n4\t5\t6\t`,
+                    expected: { rows: 2, cols: 3 }
+                },
+                {
+                    name: "Empty trailing cells (spaces)", 
+                    input: `A B C \n1 2 3 \n4 5 6 `,
+                    expected: { rows: 2, cols: 3 }
+                }
+            ];
+
+            let passed = 0;
+            let failed = 0;
+
+            for (const test of tests) {
+                try {
+                    console.log(`Testing: ${test.name}`);
+                    console.log(`Input: "${test.input}"`);
+                    
+                    const result = parseTableData(test.input);
+                    const actual_rows = result.matrix_values.length;
+                    const actual_cols = result.matrix_values[0].length;
+                    
+                    if (actual_rows === test.expected.rows && actual_cols === test.expected.cols) {
+                        console.log(`✅ PASS: ${test.name}`);
+                        passed++;
+                    } else {
+                        console.log(`❌ FAIL: ${test.name} - Expected ${test.expected.rows}x${test.expected.cols}, got ${actual_rows}x${actual_cols}`);
+                        failed++;
+                    }
+                    console.log(`Result:`, result);
+                } catch (error) {
+                    console.log(`❌ ERROR: ${test.name} - ${error.message}`);
+                    failed++;
+                }
+                console.log('---');
+            }
+
+            console.log(`Tests completed: ${passed} passed, ${failed} failed`);
+            return failed === 0;
+        }
+
+        /**
+         * Parses table data with tab or space separators into a structured format
+         * @param {string} table_data - Raw table data (tab or space separated)
+         * @returns {Object} Parsed data with headers and matrix values
+         */
+        function parseTableData(table_data) {
+            const lines = table_data.trim().split('\n').filter(line => line.trim());
+            
+            if (lines.length < 2) {
+                throw new Error('Table must have at least a header row and one data row');
+            }
+            
+            // Smart separator detection: check each line individually
+            function detectSeparator(line) {
+                if (line.includes('\t')) {
+                    return '\t';
+                } else {
+                    return /\s+/;
+                }
+            }
+            
+            function splitLine(line) {
+                const separator = detectSeparator(line);
+                return line.split(separator).map(cell => cell.trim()).filter(cell => cell.length > 0);
+            }
+            
+            // Parse header row
+            const header_row = splitLine(lines[0]);
+            const column_labels = header_row;
+            
+            // Parse data rows
+            const data_rows = [];
+            const row_labels = [];
+            
+            for (let row_index = 1; row_index < lines.length; row_index++) {
+                const cells = splitLine(lines[row_index]);
+                
+                if (cells.length !== header_row.length) {
+                    throw new Error(`Row ${row_index + 1} has ${cells.length} columns, expected ${header_row.length}`);
+                }
+                
+                const numeric_values = [];
+                for (let col_index = 0; col_index < cells.length; col_index++) {
+                    // Handle comma decimal separator
+                    const normalized_value = cells[col_index].replace(',', '.');
+                    const parsed_value = parseFloat(normalized_value);
+                    
+                    if (isNaN(parsed_value)) {
+                        throw new Error(`Invalid numeric value "${cells[col_index]}" at row ${row_index + 1}, column ${col_index + 1}`);
+                    }
+                    
+                    numeric_values.push(parsed_value);
+                }
+                
+                data_rows.push(numeric_values);
+                row_labels.push(column_labels[row_index - 1] || `Row ${row_index}`);
+            }
+            
+            return {
+                column_labels: column_labels,
+                row_labels: row_labels,
+                matrix_values: data_rows
+            };
+        }
+
+        /**
+         * Generates RGB color value for white-to-blue colormap
+         * @param {number} normalized_value - Value between 0 and 1
+         * @returns {string} RGB color string
+         */
+        function generateColorFromValue(normalized_value) {
+            // Ensure value is between 0 and 1
+            const clamped_value = Math.max(0, Math.min(1, normalized_value));
+            
+            // White to blue transition
+            const red_component = Math.round(255 * (1 - clamped_value));
+            const green_component = Math.round(255 * (1 - clamped_value));
+            const blue_component = 255;
+            
+            return `rgb(${red_component}, ${green_component}, ${blue_component})`;
+        }
+
+        /**
+         * Normalizes matrix rows so each row sums to 1
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @returns {Array<Array<number>>} Row-normalized matrix
+         */
+        function normalizeByRows(matrix_values) {
+            return matrix_values.map(row => {
+                const row_sum = row.reduce((sum, value) => sum + value, 0);
+                if (row_sum === 0) {
+                    return row.map(() => 0);
+                }
+                return row.map(value => value / row_sum);
+            });
+        }
+
+        /**
+         * Normalizes matrix columns so each column sums to 1
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @returns {Array<Array<number>>} Column-normalized matrix
+         */
+        function normalizeByColumns(matrix_values) {
+            const num_rows = matrix_values.length;
+            const num_cols = matrix_values[0].length;
+            
+            // Calculate column sums
+            const column_sums = new Array(num_cols).fill(0);
+            for (let row_index = 0; row_index < num_rows; row_index++) {
+                for (let col_index = 0; col_index < num_cols; col_index++) {
+                    column_sums[col_index] += matrix_values[row_index][col_index];
+                }
+            }
+            
+            // Normalize each element by its column sum
+            const normalized_matrix = [];
+            for (let row_index = 0; row_index < num_rows; row_index++) {
+                const normalized_row = [];
+                for (let col_index = 0; col_index < num_cols; col_index++) {
+                    if (column_sums[col_index] === 0) {
+                        normalized_row.push(0);
+                    } else {
+                        normalized_row.push(matrix_values[row_index][col_index] / column_sums[col_index]);
+                    }
+                }
+                normalized_matrix.push(normalized_row);
+            }
+            
+            return normalized_matrix;
+        }
+
+        /**
+         * Normalizes matrix by rows first, then by columns
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @returns {Array<Array<number>>} Row-then-column normalized matrix
+         */
+        function normalizeRowThenColumn(matrix_values) {
+            const row_normalized = normalizeByRows(matrix_values);
+            return normalizeByColumns(row_normalized);
+        }
+
+        /**
+         * Applies Sinkhorn-Knopp normalization algorithm with RAS decomposition
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @param {number} max_iterations - Maximum number of iterations (default: 100)
+         * @param {number} tolerance - Convergence tolerance (default: 1e-6)
+         * @param {boolean} return_decomposition - Whether to return decomposition info
+         * @returns {Array<Array<number>>|Object} Sinkhorn-Knopp normalized matrix or decomposition object
+         */
+        function normalizeSinkhornKnopp(matrix_values, max_iterations = 100, tolerance = 1e-6, return_decomposition = false) {
+            const num_rows = matrix_values.length;
+            const num_cols = matrix_values[0].length;
+            
+            // Create a copy of the matrix
+            let current_matrix = matrix_values.map(row => [...row]);
+            
+            // Check if matrix has any non-zero elements
+            const total_sum = current_matrix.flat().reduce((sum, val) => sum + val, 0);
+            if (total_sum === 0) {
+                if (return_decomposition) {
+                    return {
+                        matrix: current_matrix,
+                        row_scaling: new Array(num_rows).fill(1),
+                        column_scaling: new Array(num_cols).fill(1),
+                        doubly_stochastic: current_matrix.map(row => [...row])
+                    };
+                }
+                return current_matrix;
+            }
+            
+            // Initialize scaling factors for RAS decomposition
+            let row_scaling = new Array(num_rows).fill(1);
+            let column_scaling = new Array(num_cols).fill(1);
+            
+            for (let iteration = 0; iteration < max_iterations; iteration++) {
+                // Store previous matrix for convergence check
+                const previous_matrix = current_matrix.map(row => [...row]);
+                
+                // Row scaling step
+                for (let row_index = 0; row_index < num_rows; row_index++) {
+                    const row_sum = current_matrix[row_index].reduce((sum, val) => sum + val, 0);
+                    if (row_sum > 0) {
+                        const row_factor = 1 / row_sum;
+                        row_scaling[row_index] *= row_factor;
+                        for (let col_index = 0; col_index < num_cols; col_index++) {
+                            current_matrix[row_index][col_index] *= row_factor;
+                        }
+                    }
+                }
+                
+                // Column scaling step
+                for (let col_index = 0; col_index < num_cols; col_index++) {
+                    let col_sum = 0;
+                    for (let row_index = 0; row_index < num_rows; row_index++) {
+                        col_sum += current_matrix[row_index][col_index];
+                    }
+                    if (col_sum > 0) {
+                        const col_factor = 1 / col_sum;
+                        column_scaling[col_index] *= col_factor;
+                        for (let row_index = 0; row_index < num_rows; row_index++) {
+                            current_matrix[row_index][col_index] *= col_factor;
+                        }
+                    }
+                }
+                
+                // Check for convergence
+                let max_difference = 0;
+                for (let row_index = 0; row_index < num_rows; row_index++) {
+                    for (let col_index = 0; col_index < num_cols; col_index++) {
+                        const difference = Math.abs(current_matrix[row_index][col_index] - previous_matrix[row_index][col_index]);
+                        max_difference = Math.max(max_difference, difference);
+                    }
+                }
+                
+                if (max_difference < tolerance) {
+                    break;
+                }
+            }
+            
+            if (return_decomposition) {
+                return {
+                    matrix: current_matrix,
+                    row_scaling: row_scaling,
+                    column_scaling: column_scaling,
+                    doubly_stochastic: current_matrix.map(row => [...row])
+                };
+            }
+            
+            return current_matrix;
+        }
+
+        /**
+         * Normalizes matrix by dividing all elements by the total sum
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @returns {Array<Array<number>>} Sum-normalized matrix (joint probability distribution)
+         */
+        function normalizeBySum(matrix_values) {
+            const total_sum = matrix_values.flat().reduce((sum, val) => sum + val, 0);
+            
+            if (total_sum === 0) {
+                return matrix_values.map(row => [...row]); // Return copy of zero matrix
+            }
+            
+            return matrix_values.map(row => 
+                row.map(val => val / total_sum)
+            );
+        }
+
+        /**
+         * Applies the selected normalization to matrix values
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @param {string} normalization_type - Type of normalization to apply
+         * @returns {Array<Array<number>>} Normalized matrix
+         */
+        function applyNormalization(matrix_values, normalization_type) {
+            switch (normalization_type) {
+                case 'row':
+                    return normalizeByRows(matrix_values);
+                case 'column':
+                    return normalizeByColumns(matrix_values);
+                case 'row_then_column':
+                    return normalizeRowThenColumn(matrix_values);
+                case 'sinkhorn_knopp':
+                    return normalizeSinkhornKnopp(matrix_values);
+                case 'sum':
+                    return normalizeBySum(matrix_values);
+                case 'none':
+                default:
+                    return matrix_values;
+            }
+        }
+
+        /**
+         * Calculates color intensity based on matrix values
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @returns {Array<Array<number>>} Normalized values for color mapping
+         */
+        function calculateColorIntensities(matrix_values) {
+            // Find min and max values across entire matrix
+            let min_value = Infinity;
+            let max_value = -Infinity;
+            
+            for (const row_values of matrix_values) {
+                for (const cell_value of row_values) {
+                    min_value = Math.min(min_value, cell_value);
+                    max_value = Math.max(max_value, cell_value);
+                }
+            }
+            
+            // Handle edge case where all values are the same
+            const value_range = max_value - min_value;
+            if (value_range === 0) {
+                return matrix_values.map(row => row.map(() => 0.5));
+            }
+            
+            // Normalize values to 0-1 range
+            return matrix_values.map(row => 
+                row.map(value => (value - min_value) / value_range)
+            );
+        }
+
+        /**
+         * Renders the confusion matrix as an HTML table
+         * @param {Object} parsed_data - Parsed table data
+         * @param {string} normalization_type - Type of normalization to apply
+         * @param {boolean} include_sums - Whether to include row/column sums
+         * @param {boolean} include_info - Whether to include answer information row
+         * side-effects: Modifies DOM element with id 'matrix-container'
+         */
+        function renderConfusionMatrix(parsed_data, normalization_type = 'none', include_sums = true, include_info = true) {
+            const matrix_container = document.getElementById('matrix-container');
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type);
+            const normalized_intensities = calculateColorIntensities(normalized_matrix);
+            
+            // Calculate row sums, column sums, and total sum
+            const row_sums = normalized_matrix.map(row => row.reduce((sum, val) => sum + val, 0));
+            const column_sums = [];
+            for (let col_index = 0; col_index < normalized_matrix[0].length; col_index++) {
+                let col_sum = 0;
+                for (let row_index = 0; row_index < normalized_matrix.length; row_index++) {
+                    col_sum += normalized_matrix[row_index][col_index];
+                }
+                column_sums.push(col_sum);
+            }
+            const total_sum = row_sums.reduce((sum, val) => sum + val, 0);
+            
+            // Calculate answer information if needed
+            let answer_information = [];
+            if (include_info) {
+                answer_information = calculateClassifierAnswerInformation(normalized_matrix);
+            }
+            
+            // Create table element
+            const table_element = document.createElement('table');
+            table_element.className = 'confusion-matrix';
+            
+            // Create header row
+            const header_row = document.createElement('tr');
+            
+            // Corner cell
+            const corner_cell = document.createElement('th');
+            corner_cell.className = 'corner';
+            corner_cell.textContent = 'Predicted →\nActual ↓';
+            corner_cell.style.whiteSpace = 'pre-line';
+            header_row.appendChild(corner_cell);
+            
+            // Column headers
+            for (const column_label of parsed_data.column_labels) {
+                const header_cell = document.createElement('th');
+                header_cell.textContent = column_label;
+                header_row.appendChild(header_cell);
+            }
+            
+            // Sum column header
+            if (include_sums) {
+                const sum_header_cell = document.createElement('th');
+                sum_header_cell.textContent = 'Sum';
+                sum_header_cell.style.backgroundColor = '#e9ecef';
+                sum_header_cell.style.fontWeight = 'bold';
+                header_row.appendChild(sum_header_cell);
+            }
+            
+            table_element.appendChild(header_row);
+            
+            // Create data rows
+            for (let row_index = 0; row_index < parsed_data.matrix_values.length; row_index++) {
+                const data_row = document.createElement('tr');
+                
+                // Row header
+                const row_header_cell = document.createElement('th');
+                row_header_cell.className = 'row-header';
+                row_header_cell.textContent = parsed_data.row_labels[row_index];
+                data_row.appendChild(row_header_cell);
+                
+                // Data cells
+                for (let col_index = 0; col_index < normalized_matrix[row_index].length; col_index++) {
+                    const data_cell = document.createElement('td');
+                    const cell_value = normalized_matrix[row_index][col_index];
+                    const color_intensity = normalized_intensities[row_index][col_index];
+                    
+                    data_cell.textContent = cell_value.toFixed(4);
+                    data_cell.style.backgroundColor = generateColorFromValue(color_intensity);
+                    
+                    // Add white text for dark cells
+                    if (color_intensity > 0.6) {
+                        data_cell.style.color = 'white';
+                    }
+                    
+                    data_row.appendChild(data_cell);
+                }
+                
+                // Row sum cell
+                if (include_sums) {
+                    const row_sum_cell = document.createElement('td');
+                    row_sum_cell.textContent = row_sums[row_index].toFixed(4);
+                    row_sum_cell.style.backgroundColor = '#f8f9fa';
+                    row_sum_cell.style.fontWeight = 'bold';
+                    row_sum_cell.style.borderLeft = '2px solid #dee2e6';
+                    data_row.appendChild(row_sum_cell);
+                }
+                
+                table_element.appendChild(data_row);
+            }
+            
+            // Add column sum row
+            if (include_sums) {
+                const sum_row = document.createElement('tr');
+                
+                // Sum row header
+                const sum_row_header = document.createElement('th');
+                sum_row_header.className = 'row-header';
+                sum_row_header.textContent = 'Sum';
+                sum_row_header.style.backgroundColor = '#e9ecef';
+                sum_row_header.style.fontWeight = 'bold';
+                sum_row_header.style.borderTop = '2px solid #dee2e6';
+                sum_row.appendChild(sum_row_header);
+                
+                // Column sum cells
+                for (let col_index = 0; col_index < column_sums.length; col_index++) {
+                    const col_sum_cell = document.createElement('td');
+                    col_sum_cell.textContent = column_sums[col_index].toFixed(4);
+                    col_sum_cell.style.backgroundColor = '#f8f9fa';
+                    col_sum_cell.style.fontWeight = 'bold';
+                    col_sum_cell.style.borderTop = '2px solid #dee2e6';
+                    sum_row.appendChild(col_sum_cell);
+                }
+                
+                // Total sum cell (intersection of Sum row and Sum column)
+                const total_sum_cell = document.createElement('td');
+                total_sum_cell.textContent = total_sum.toFixed(4);
+                total_sum_cell.style.backgroundColor = '#e9ecef';
+                total_sum_cell.style.fontWeight = 'bold';
+                total_sum_cell.style.borderTop = '2px solid #dee2e6';
+                total_sum_cell.style.borderLeft = '2px solid #dee2e6';
+                sum_row.appendChild(total_sum_cell);
+                
+                table_element.appendChild(sum_row);
+            }
+            
+            // Add answer information row
+            if (include_info) {
+                const info_row = document.createElement('tr');
+                
+                // Info row header
+                const info_row_header = document.createElement('th');
+                info_row_header.className = 'row-header';
+                info_row_header.textContent = 'Answer Info (bits)';
+                info_row_header.style.backgroundColor = '#e3f2fd';
+                info_row_header.style.fontWeight = 'bold';
+                info_row_header.style.borderTop = '2px solid #90caf9';
+                info_row_header.style.color = '#1565c0';
+                info_row.appendChild(info_row_header);
+                
+                // Answer information cells
+                for (let col_index = 0; col_index < answer_information.length; col_index++) {
+                    const info_cell = document.createElement('td');
+                    info_cell.textContent = answer_information[col_index].toFixed(3);
+                    info_cell.style.backgroundColor = '#f3e5f5';
+                    info_cell.style.fontWeight = 'bold';
+                    info_cell.style.borderTop = '2px solid #90caf9';
+                    info_cell.style.color = '#4a148c';
+                    info_cell.title = `Information provided when classifier predicts ${parsed_data.column_labels[col_index]}`;
+                    info_row.appendChild(info_cell);
+                }
+                
+                // Empty cell for sum column if sums are included
+                if (include_sums) {
+                    const empty_cell = document.createElement('td');
+                    empty_cell.style.backgroundColor = '#f3e5f5';
+                    empty_cell.style.borderTop = '2px solid #90caf9';
+                    empty_cell.style.borderLeft = '2px solid #dee2e6';
+                    info_row.appendChild(empty_cell);
+                }
+                
+                table_element.appendChild(info_row);
+            }
+            
+            matrix_container.innerHTML = '';
+            matrix_container.appendChild(table_element);
+        }
+
+        /**
+         * Generates tab-separated text representation of the matrix
+         * @param {Object} parsed_data - Parsed table data
+         * @param {string} normalization_type - Type of normalization to apply
+         * @param {boolean} include_sums - Whether to include row/column sums
+         * @returns {string} Tab-separated text representation
+         */
+        function generateTabSeparatedText(parsed_data, normalization_type = 'none', include_sums = true) {
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type);
+            
+            // Get decomposition for Sinkhorn-Knopp
+            let decomposition = null;
+            if (normalization_type === 'sinkhorn_knopp') {
+                decomposition = normalizeSinkhornKnopp(parsed_data.matrix_values, 100, 1e-6, true);
+            }
+            
+            // Calculate sums if needed
+            let row_sums = [];
+            let column_sums = [];
+            let total_sum = 0;
+            
+            if (include_sums) {
+                row_sums = normalized_matrix.map(row => row.reduce((sum, val) => sum + val, 0));
+                column_sums = [];
+                for (let col_index = 0; col_index < normalized_matrix[0].length; col_index++) {
+                    let col_sum = 0;
+                    for (let row_index = 0; row_index < normalized_matrix.length; row_index++) {
+                        col_sum += normalized_matrix[row_index][col_index];
+                    }
+                    column_sums.push(col_sum);
+                }
+                total_sum = row_sums.reduce((sum, val) => sum + val, 0);
+            }
+            
+            let text_content = '';
+            
+            // Header row
+            text_content += '\t' + parsed_data.column_labels.join('\t');
+            if (include_sums) {
+                text_content += '\tSum';
+            }
+            if (decomposition) {
+                text_content += '\tRow Scaling (r)';
+            }
+            text_content += '\n';
+            
+            // Data rows
+            for (let row_index = 0; row_index < normalized_matrix.length; row_index++) {
+                text_content += parsed_data.row_labels[row_index] + '\t';
+                text_content += normalized_matrix[row_index].map(val => val.toFixed(4)).join('\t');
+                if (include_sums) {
+                    text_content += '\t' + row_sums[row_index].toFixed(4);
+                }
+                if (decomposition) {
+                    text_content += '\t' + decomposition.row_scaling[row_index].toFixed(6);
+                }
+                text_content += '\n';
+            }
+            
+            // Sum row
+            if (include_sums) {
+                text_content += 'Sum\t';
+                text_content += column_sums.map(val => val.toFixed(4)).join('\t');
+                text_content += '\t' + total_sum.toFixed(4);
+                if (decomposition) {
+                    text_content += '\t';  // Empty cell for row scaling column
+                }
+                text_content += '\n';
+            }
+            
+            // Column scaling row for Sinkhorn-Knopp
+            if (decomposition) {
+                text_content += 'Column Scaling (c)\t';
+                text_content += decomposition.column_scaling.map(val => val.toFixed(6)).join('\t');
+                if (include_sums) {
+                    text_content += '\t';  // Empty cell for sum column
+                }
+                text_content += '\t';  // Empty cell for row scaling column
+                text_content += '\n';
+                
+                // Add reconstruction formula
+                text_content += '\n';
+                text_content += '# RAS Decomposition: DoublyStochastic[i,j] = r[i] × Original[i,j] × c[j]\n';
+                text_content += '# To reconstruct original: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])\n';
+                text_content += '# Row scaling factors (r) and column scaling factors (c) are included above\n';
+            }
+            
+            return text_content;
+        }
+
+        /**
+         * Generates CSV representation of the matrix
+         * @param {Object} parsed_data - Parsed table data
+         * @param {string} normalization_type - Type of normalization to apply
+         * @param {boolean} include_sums - Whether to include row/column sums
+         * @returns {string} CSV representation
+         */
+        function generateCSV(parsed_data, normalization_type = 'none', include_sums = true) {
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type);
+            
+            // Get decomposition for Sinkhorn-Knopp
+            let decomposition = null;
+            if (normalization_type === 'sinkhorn_knopp') {
+                decomposition = normalizeSinkhornKnopp(parsed_data.matrix_values, 100, 1e-6, true);
+            }
+            
+            // Calculate sums if needed
+            let row_sums = [];
+            let column_sums = [];
+            let total_sum = 0;
+            
+            if (include_sums) {
+                row_sums = normalized_matrix.map(row => row.reduce((sum, val) => sum + val, 0));
+                column_sums = [];
+                for (let col_index = 0; col_index < normalized_matrix[0].length; col_index++) {
+                    let col_sum = 0;
+                    for (let row_index = 0; row_index < normalized_matrix.length; row_index++) {
+                        col_sum += normalized_matrix[row_index][col_index];
+                    }
+                    column_sums.push(col_sum);
+                }
+                total_sum = row_sums.reduce((sum, val) => sum + val, 0);
+            }
+            
+            let csv_content = '';
+            
+            // Header row
+            csv_content += ',' + parsed_data.column_labels.map(label => `"${label}"`).join(',');
+            if (include_sums) {
+                csv_content += ',"Sum"';
+            }
+            if (decomposition) {
+                csv_content += ',"Row Scaling (r)"';
+            }
+            csv_content += '\n';
+            
+            // Data rows
+            for (let row_index = 0; row_index < normalized_matrix.length; row_index++) {
+                csv_content += `"${parsed_data.row_labels[row_index]}",`;
+                csv_content += normalized_matrix[row_index].map(val => val.toFixed(4)).join(',');
+                if (include_sums) {
+                    csv_content += ',' + row_sums[row_index].toFixed(4);
+                }
+                if (decomposition) {
+                    csv_content += ',' + decomposition.row_scaling[row_index].toFixed(6);
+                }
+                csv_content += '\n';
+            }
+            
+            // Sum row
+            if (include_sums) {
+                csv_content += '"Sum",';
+                csv_content += column_sums.map(val => val.toFixed(4)).join(',');
+                csv_content += ',' + total_sum.toFixed(4);
+                if (decomposition) {
+                    csv_content += ',';  // Empty cell for row scaling column
+                }
+                csv_content += '\n';
+            }
+            
+            // Column scaling row for Sinkhorn-Knopp
+            if (decomposition) {
+                csv_content += '"Column Scaling (c)",';
+                csv_content += decomposition.column_scaling.map(val => val.toFixed(6)).join(',');
+                if (include_sums) {
+                    csv_content += ',';  // Empty cell for sum column
+                }
+                csv_content += ',';  // Empty cell for row scaling column
+                csv_content += '\n';
+                
+                // Add reconstruction formula as comment
+                csv_content += '\n';
+                csv_content += '"# RAS Decomposition: DoublyStochastic[i,j] = r[i] × Original[i,j] × c[j]"\n';
+                csv_content += '"# To reconstruct original: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])"\n';
+                csv_content += '"# Row scaling factors (r) and column scaling factors (c) are included above"\n';
+            }
+            
+            return csv_content;
+        }
+
+        /**
+         * Renders the tab-separated text view
+         * @param {Object} parsed_data - Parsed table data
+         * @param {string} normalization_type - Type of normalization to apply
+         * @param {boolean} include_sums - Whether to include row/column sums
+         * side-effects: Modifies DOM element with id 'text-view-container'
+         */
+        function renderTextView(parsed_data, normalization_type = 'none', include_sums = true) {
+            const text_container = document.getElementById('text-view-container');
+            const text_content = generateTabSeparatedText(parsed_data, normalization_type, include_sums);
+            
+            text_container.innerHTML = `
+                <div class="text-view-content">${text_content}</div>
+                <button class="copy-text-btn" onclick="copyTextToClipboard()">Copy to Clipboard</button>
+            `;
+        }
+
+        /**
+         * Downloads matrix as CSV file
+         * @param {Object} parsed_data - Parsed table data
+         * @param {string} normalization_type - Type of normalization to apply
+         * @param {boolean} include_sums - Whether to include row/column sums
+         * side-effects: Triggers file download
+         */
+        function downloadAsCSV(parsed_data, normalization_type = 'none', include_sums = true) {
+            const csv_content = generateCSV(parsed_data, normalization_type, include_sums);
+            
+            const normalization_suffix = normalization_type === 'none' ? '' : `_${normalization_type}`;
+            const filename = `confusion_matrix${normalization_suffix}.csv`;
+            
+            const blob = new Blob([csv_content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        /**
+         * Copies text view content to clipboard
+         * side-effects: Copies text to clipboard, shows temporary feedback
+         */
+        function copyTextToClipboard() {
+            const text_content = document.querySelector('.text-view-content').textContent;
+            navigator.clipboard.writeText(text_content).then(() => {
+                const copy_button = document.querySelector('.copy-text-btn');
+                const original_text = copy_button.textContent;
+                copy_button.textContent = 'Copied!';
+                copy_button.style.backgroundColor = '#28a745';
+                
+                setTimeout(() => {
+                    copy_button.textContent = original_text;
+                    copy_button.style.backgroundColor = '#6c757d';
+                }, 2000);
+            }).catch(() => {
+                alert('Failed to copy text to clipboard');
+            });
+        }
+
+        /**
+         * Calculates the trace of a square matrix (sum of diagonal elements)
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @returns {number} Trace of the matrix
+         */
+        function calculateTrace(matrix_values) {
+            const num_rows = matrix_values.length;
+            const num_cols = matrix_values[0].length;
+            const min_dimension = Math.min(num_rows, num_cols);
+            
+            let trace_sum = 0;
+            for (let index = 0; index < min_dimension; index++) {
+                trace_sum += matrix_values[index][index];
+            }
+            
+            return trace_sum;
+        }
+
+        /**
+         * Calculates mutual information for confusion matrix
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values (must be probabilities/normalized)
+         * @returns {number} Mutual information value
+         */
+        function calculateMutualInformation(matrix_values) {
+            const num_rows = matrix_values.length;
+            const num_cols = matrix_values[0].length;
+            
+            // Calculate total sum to ensure matrix is normalized
+            const total_sum = matrix_values.flat().reduce((sum, val) => sum + val, 0);
+            
+            // If matrix is not normalized, normalize it for MI calculation
+            let normalized_matrix = matrix_values;
+            if (Math.abs(total_sum - 1.0) > 1e-10) {
+                if (total_sum === 0) {
+                    return 0; // Cannot calculate MI for zero matrix
+                }
+                normalized_matrix = matrix_values.map(row => 
+                    row.map(val => val / total_sum)
+                );
+            }
+            
+            // Calculate marginal probabilities
+            const row_marginals = normalized_matrix.map(row => 
+                row.reduce((sum, val) => sum + val, 0)
+            );
+            
+            const column_marginals = [];
+            for (let col_index = 0; col_index < num_cols; col_index++) {
+                let col_sum = 0;
+                for (let row_index = 0; row_index < num_rows; row_index++) {
+                    col_sum += normalized_matrix[row_index][col_index];
+                }
+                column_marginals.push(col_sum);
+            }
+            
+            // Calculate mutual information
+            let mutual_information = 0;
+            for (let row_index = 0; row_index < num_rows; row_index++) {
+                for (let col_index = 0; col_index < num_cols; col_index++) {
+                    const joint_prob = normalized_matrix[row_index][col_index];
+                    const row_marginal = row_marginals[row_index];
+                    const col_marginal = column_marginals[col_index];
+                    
+                    // Only add to MI if joint probability is non-zero
+                    if (joint_prob > 0 && row_marginal > 0 && col_marginal > 0) {
+                        const independent_prob = row_marginal * col_marginal;
+                        mutual_information += joint_prob * Math.log2(joint_prob / independent_prob);
+                    }
+                }
+            }
+            
+            return mutual_information;
+        }
+
+        /**
+         * Calculates normalized mutual information (NMI)
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @returns {number} Normalized mutual information value (0-1 range)
+         */
+        function calculateNormalizedMutualInformation(matrix_values) {
+            const mutual_info = calculateMutualInformation(matrix_values);
+            
+            // Calculate entropy for normalization
+            const num_rows = matrix_values.length;
+            const num_cols = matrix_values[0].length;
+            
+            const total_sum = matrix_values.flat().reduce((sum, val) => sum + val, 0);
+            if (total_sum === 0) {
+                return 0;
+            }
+            
+            let normalized_matrix = matrix_values;
+            if (Math.abs(total_sum - 1.0) > 1e-10) {
+                normalized_matrix = matrix_values.map(row => 
+                    row.map(val => val / total_sum)
+                );
+            }
+            
+            // Calculate row and column entropies
+            const row_marginals = normalized_matrix.map(row => 
+                row.reduce((sum, val) => sum + val, 0)
+            );
+            
+            const column_marginals = [];
+            for (let col_index = 0; col_index < num_cols; col_index++) {
+                let col_sum = 0;
+                for (let row_index = 0; row_index < num_rows; row_index++) {
+                    col_sum += normalized_matrix[row_index][col_index];
+                }
+                column_marginals.push(col_sum);
+            }
+            
+            // Calculate entropies
+            let row_entropy = 0;
+            for (const prob of row_marginals) {
+                if (prob > 0) {
+                    row_entropy -= prob * Math.log2(prob);
+                }
+            }
+            
+            let col_entropy = 0;
+            for (const prob of column_marginals) {
+                if (prob > 0) {
+                    col_entropy -= prob * Math.log2(prob);
+                }
+            }
+            
+            // Normalize MI by geometric mean of entropies
+            const entropy_product = row_entropy * col_entropy;
+            if (entropy_product === 0) {
+                return 0;
+            }
+            
+            return mutual_info / Math.sqrt(entropy_product);
+        }
+
+        /**
+         * Calculates the information content from each classifier answer
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @returns {Array<number>} Information content for each predicted class in bits
+         */
+        function calculateClassifierAnswerInformation(matrix_values) {
+            const num_rows = matrix_values.length;
+            const num_cols = matrix_values[0].length;
+            
+            // Calculate total sum for normalization
+            const total_sum = matrix_values.flat().reduce((sum, val) => sum + val, 0);
+            if (total_sum === 0) {
+                return new Array(num_cols).fill(0);
+            }
+            
+            // Calculate column marginals P(predicted = j)
+            const column_marginals = [];
+            for (let col_index = 0; col_index < num_cols; col_index++) {
+                let col_sum = 0;
+                for (let row_index = 0; row_index < num_rows; row_index++) {
+                    col_sum += matrix_values[row_index][col_index];
+                }
+                column_marginals.push(col_sum / total_sum);
+            }
+            
+            // Calculate row marginals P(true = i)
+            const row_marginals = [];
+            for (let row_index = 0; row_index < num_rows; row_index++) {
+                let row_sum = 0;
+                for (let col_index = 0; col_index < num_cols; col_index++) {
+                    row_sum += matrix_values[row_index][col_index];
+                }
+                row_marginals.push(row_sum / total_sum);
+            }
+            
+            // For each predicted class j, calculate I(True; Predicted=j)
+            const information_per_answer = [];
+            for (let col_index = 0; col_index < num_cols; col_index++) {
+                let information = 0;
+                
+                if (column_marginals[col_index] > 0) {
+                    // Calculate conditional probabilities P(true=i | predicted=j)
+                    for (let row_index = 0; row_index < num_rows; row_index++) {
+                        const joint_prob = matrix_values[row_index][col_index] / total_sum;
+                        const conditional_prob = joint_prob / column_marginals[col_index];
+                        const marginal_prob = row_marginals[row_index];
+                        
+                        if (conditional_prob > 0 && marginal_prob > 0) {
+                            // I(True=i; Predicted=j) = log₂(P(true=i|pred=j) / P(true=i))
+                            information += conditional_prob * Math.log2(conditional_prob / marginal_prob);
+                        }
+                    }
+                }
+                
+                information_per_answer.push(information);
+            }
+            
+            return information_per_answer;
+        }
+
+        /**
+         * Calculates and displays matrix statistics
+         * @param {Object} parsed_data - Parsed table data
+         * @param {string} normalization_type - Type of normalization applied
+         * side-effects: Modifies DOM element with id 'stats-container'
+         */
+        function displayMatrixStatistics(parsed_data, normalization_type = 'none') {
+            const stats_container = document.getElementById('stats-container');
+            
+            // Use normalized matrix for statistics
+            const display_matrix = applyNormalization(parsed_data.matrix_values, normalization_type);
+            
+            // Calculate statistics
+            const all_values = display_matrix.flat();
+            const min_value = Math.min(...all_values);
+            const max_value = Math.max(...all_values);
+            const mean_value = all_values.reduce((sum, val) => sum + val, 0) / all_values.length;
+            const matrix_dimensions = `${display_matrix.length}×${display_matrix[0].length}`;
+            
+            // Calculate trace and mutual information
+            const trace_value = calculateTrace(display_matrix);
+            const num_classes = Math.min(display_matrix.length, display_matrix[0].length);
+            const normalized_trace = num_classes > 0 ? trace_value / num_classes : 0;
+            const mutual_info = calculateMutualInformation(display_matrix);
+            const normalized_mutual_info = calculateNormalizedMutualInformation(display_matrix);
+            const answer_information = calculateClassifierAnswerInformation(display_matrix);
+            
+            // Create stat boxes
+            const normalization_labels = {
+                'none': 'Original',
+                'row': 'Row Normalized',
+                'column': 'Column Normalized', 
+                'row_then_column': 'Row→Column',
+                'sinkhorn_knopp': 'Sinkhorn-Knopp',
+                'sum': 'Sum Normalized'
+            };
+            
+            const statistics = [
+                { label: 'Normalization', value: normalization_labels[normalization_type] || 'Original', tooltip: 'Type of normalization applied to the matrix' },
+                { label: 'Dimensions', value: matrix_dimensions, tooltip: 'Matrix size (rows × columns)' },
+                { label: 'Min Value', value: min_value.toFixed(4), tooltip: 'Smallest value in the matrix' },
+                { label: 'Max Value', value: max_value.toFixed(4), tooltip: 'Largest value in the matrix' },
+                { label: 'Mean Value', value: mean_value.toFixed(4), tooltip: 'Average of all matrix values' },
+                { label: 'Trace', value: trace_value.toFixed(4), tooltip: 'Sum of diagonal elements (correctly classified instances)' },
+                { label: 'Trace/n_classes', value: normalized_trace.toFixed(4), tooltip: 'Average accuracy per class (trace divided by number of classes)' },
+                { label: 'Mutual Information', value: mutual_info.toFixed(4), tooltip: 'MI = ∑∑ P(x,y) × log₂(P(x,y) / (P(x)×P(y))) - dependence between predicted and actual classes (bits)' },
+                { label: 'Normalized MI', value: normalized_mutual_info.toFixed(4), tooltip: 'NMI = MI / √(H(X) × H(Y)) - geometric mean normalization, range [0,1]' }
+            ];
+            
+            stats_container.innerHTML = '';
+            
+            for (const stat of statistics) {
+                const stat_box = document.createElement('div');
+                stat_box.className = 'stat-box';
+                
+                // Add tooltip if available
+                if (stat.tooltip) {
+                    stat_box.setAttribute('data-tooltip', stat.tooltip);
+                }
+                
+                const label_element = document.createElement('h3');
+                label_element.textContent = stat.label;
+                
+                const value_element = document.createElement('div');
+                value_element.className = 'value';
+                value_element.textContent = stat.value;
+                
+                stat_box.appendChild(label_element);
+                stat_box.appendChild(value_element);
+                stats_container.appendChild(stat_box);
+            }
+            
+            stats_container.style.display = 'grid';
+        }
+
+        /**
+         * Displays RAS decomposition for Sinkhorn-Knopp normalization
+         * @param {Object} parsed_data - Parsed table data
+         * @param {Object} decomposition - RAS decomposition result
+         * side-effects: Modifies DOM element with id 'decomposition-container'
+         */
+        function displayDecomposition(parsed_data, decomposition) {
+            const decomposition_container = document.getElementById('decomposition-container');
+            
+            // Create the display content
+            const row_scaling_html = decomposition.row_scaling.map((value, index) => `
+                <div class="scaling-item">
+                    <span class="label">${parsed_data.row_labels[index]}:</span>
+                    <span class="value">${value.toFixed(6)}</span>
+                </div>
+            `).join('');
+            
+            const column_scaling_html = decomposition.column_scaling.map((value, index) => `
+                <div class="scaling-item">
+                    <span class="label">${parsed_data.column_labels[index]}:</span>
+                    <span class="value">${value.toFixed(6)}</span>
+                </div>
+            `).join('');
+            
+            decomposition_container.innerHTML = `
+                <div class="decomposition-title" data-tooltip="RAS Decomposition: DoublyStochastic = diag(r) × Original × diag(c)">
+                    RAS Decomposition (Row And column Scaling)
+                </div>
+                <div class="decomposition-content">
+                    <div class="scaling-section">
+                        <h4>Row Scaling Factors (r)</h4>
+                        <div class="scaling-values">
+                            ${row_scaling_html}
+                        </div>
+                    </div>
+                    <div class="scaling-section">
+                        <h4>Column Scaling Factors (c)</h4>
+                        <div class="scaling-values">
+                            ${column_scaling_html}
+                        </div>
+                    </div>
+                    <div class="reconstruction-formula" data-tooltip="To reconstruct original matrix: divide doubly stochastic by both r[i] and c[j]">
+                        Reconstruction: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])
+                    </div>
+                </div>
+            `;
+            
+            decomposition_container.style.display = 'block';
+        }
+
+        /**
+         * Hides the decomposition display
+         * side-effects: Modifies DOM element with id 'decomposition-container'
+         */
+        function hideDecomposition() {
+            const decomposition_container = document.getElementById('decomposition-container');
+            decomposition_container.style.display = 'none';
+            decomposition_container.innerHTML = '';
+        }
+
+        /**
+         * Displays error message to user
+         * @param {string} error_text - Error message to display
+         * side-effects: Modifies DOM elements for error display
+         */
+        function showErrorMessage(error_text) {
+            const error_element = document.getElementById('error-message');
+            error_element.textContent = error_text;
+            error_element.style.display = 'block';
+            
+            // Hide matrix, text view, decomposition, and stats
+            document.getElementById('matrix-container').innerHTML = '';
+            document.getElementById('text-view-container').innerHTML = '';
+            document.getElementById('text-view-container').style.display = 'none';
+            document.getElementById('decomposition-container').style.display = 'none';
+            document.getElementById('stats-container').style.display = 'none';
+        }
+
+        /**
+         * Hides error message
+         * side-effects: Modifies DOM element with id 'error-message'
+         */
+        function hideErrorMessage() {
+            const error_element = document.getElementById('error-message');
+            error_element.style.display = 'none';
+        }
+
+        /**
+         * Updates the matrix title based on normalization type
+         * @param {string} normalization_type - Type of normalization applied
+         * side-effects: Modifies DOM element with id 'matrix-title'
+         */
+        function updateMatrixTitle(normalization_type) {
+            const title_element = document.getElementById('matrix-title');
+            const normalization_names = {
+                'none': 'Confusion Matrix (Original)',
+                'row': 'Confusion Matrix (Row Normalized)',
+                'column': 'Confusion Matrix (Column Normalized)',
+                'row_then_column': 'Confusion Matrix (Row → Column Normalized)',
+                'sinkhorn_knopp': 'Confusion Matrix (Sinkhorn-Knopp Normalized)',
+                'sum': 'Confusion Matrix (Sum Normalized)'
+            };
+            
+            title_element.textContent = normalization_names[normalization_type] || 'Confusion Matrix';
+        }
+
+        /**
+         * Main function to process table input and generate matrix visualization
+         * side-effects: Updates DOM with matrix visualization or error message
+         */
+        function processTableInput() {
+            const input_element = document.getElementById('table-input');
+            const table_data = input_element.value.trim();
+            
+            if (!table_data) {
+                showErrorMessage('Please enter table data');
+                return;
+            }
+            
+            try {
+                hideErrorMessage();
+                const parsed_data = parseTableData(table_data);
+                
+                // Show normalization options and matrix controls after successful parsing
+                document.getElementById('normalization-section').style.display = 'block';
+                document.getElementById('matrix-controls').style.display = 'flex';
+                
+                // Get selected normalization type and options
+                const selected_normalization = document.querySelector('input[name="normalization"]:checked').value;
+                const include_sums = document.getElementById('include-sums').checked;
+                const include_info = document.getElementById('include-info').checked;
+                
+                updateMatrixTitle(selected_normalization);
+                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info);
+                renderTextView(parsed_data, selected_normalization, include_sums);
+                displayMatrixStatistics(parsed_data, selected_normalization);
+                
+                // Show decomposition only for Sinkhorn-Knopp normalization
+                if (selected_normalization === 'sinkhorn_knopp') {
+                    const decomposition = normalizeSinkhornKnopp(parsed_data.matrix_values, 100, 1e-6, true);
+                    displayDecomposition(parsed_data, decomposition);
+                } else {
+                    hideDecomposition();
+                }
+            } catch (error) {
+                showErrorMessage(`Error: ${error.message}`);
+                // Hide normalization options and matrix controls on error
+                document.getElementById('normalization-section').style.display = 'none';
+                document.getElementById('matrix-controls').style.display = 'none';
+            }
+        }
+
+        /**
+         * Updates the matrix display when normalization type changes
+         * side-effects: Re-renders matrix with new normalization
+         */
+        function updateMatrixNormalization() {
+            const input_element = document.getElementById('table-input');
+            const table_data = input_element.value.trim();
+            
+            if (!table_data) {
+                return;
+            }
+            
+            try {
+                const parsed_data = parseTableData(table_data);
+                const selected_normalization = document.querySelector('input[name="normalization"]:checked').value;
+                const include_sums = document.getElementById('include-sums').checked;
+                const include_info = document.getElementById('include-info').checked;
+                
+                updateMatrixTitle(selected_normalization);
+                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info);
+                renderTextView(parsed_data, selected_normalization, include_sums);
+                displayMatrixStatistics(parsed_data, selected_normalization);
+                
+                // Show decomposition only for Sinkhorn-Knopp normalization
+                if (selected_normalization === 'sinkhorn_knopp') {
+                    const decomposition = normalizeSinkhornKnopp(parsed_data.matrix_values, 100, 1e-6, true);
+                    displayDecomposition(parsed_data, decomposition);
+                } else {
+                    hideDecomposition();
+                }
+            } catch (error) {
+                // Error handling is already done in processTableInput
+                console.error('Error updating normalization:', error);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('parse-button').addEventListener('click', processTableInput);
+        
+        document.getElementById('table-input').addEventListener('keydown', function(event) {
+            if (event.ctrlKey && event.key === 'Enter') {
+                processTableInput();
+            }
+        });
+        
+        // Add event listeners for normalization radio buttons
+        document.addEventListener('change', function(event) {
+            if (event.target.name === 'normalization') {
+                updateMatrixNormalization();
+            }
+            if (event.target.id === 'include-sums') {
+                updateMatrixNormalization();
+            }
+            if (event.target.id === 'include-info') {
+                updateMatrixNormalization();
+            }
+        });
+        
+        // Add event listeners for view mode buttons
+        document.getElementById('table-view-btn').addEventListener('click', function() {
+            document.getElementById('matrix-container').style.display = 'block';
+            document.getElementById('text-view-container').style.display = 'none';
+            
+            document.getElementById('table-view-btn').classList.add('active');
+            document.getElementById('text-view-btn').classList.remove('active');
+        });
+        
+        document.getElementById('text-view-btn').addEventListener('click', function() {
+            document.getElementById('matrix-container').style.display = 'none';
+            document.getElementById('text-view-container').style.display = 'block';
+            
+            document.getElementById('text-view-btn').classList.add('active');
+            document.getElementById('table-view-btn').classList.remove('active');
+        });
+        
+        // Add event listener for CSV download
+        document.getElementById('download-csv-btn').addEventListener('click', function() {
+            const input_element = document.getElementById('table-input');
+            const table_data = input_element.value.trim();
+            
+            if (!table_data) {
+                alert('Please enter table data first');
+                return;
+            }
+            
+            try {
+                const parsed_data = parseTableData(table_data);
+                const selected_normalization = document.querySelector('input[name="normalization"]:checked').value;
+                const include_sums = document.getElementById('include-sums').checked;
+                
+                downloadAsCSV(parsed_data, selected_normalization, include_sums);
+            } catch (error) {
+                alert(`Error generating CSV: ${error.message}`);
+            }
+        });
+
+        // Load example data on page load
+        // Make test function available globally for debugging
+        window.runParserTests = runParserTests;
+
+        window.addEventListener('load', function() {
+            const run_tests = false;
+            
+            if (run_tests) {
+                // Run tests in console for debugging
+                console.log('Running parser tests...');
+                runParserTests();
+            }
+            
+            const example_data = `Жираф	Носорог	Краб	Лиса	Муравей
+360	12	24	18	6
+4	200	2	8	2
+100	60	3000	600	1600
+100	50	75	1000	30
+500	700	2000	1000	100000
+`;
+            
+            document.getElementById('table-input').value = example_data;
+            processTableInput();
+        });
+    </script>
+</body>
+</html>

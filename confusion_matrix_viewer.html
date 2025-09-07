@@ -647,27 +647,95 @@
                 <div class="normalization-section" id="normalization-section" style="display: none;">
                     <h3>Normalization Options</h3>
                     <div class="normalization-controls">
-                        <label class="radio-option">
+                        <label class="radio-option" data-tooltip="Original confusion matrix showing raw counts or frequencies.
+
+Interpretation:
+• Each cell [i,j] = number of instances where true class was i and predicted class was j
+• Row sums = total instances per true class
+• Column sums = total instances per predicted class
+• Diagonal elements = correctly classified instances
+• Off-diagonal elements = misclassifications
+
+Use when: You want to see absolute numbers and class imbalances.">
                             <input type="radio" name="normalization" value="none" checked>
                             <span>Original (No normalization)</span>
                         </label>
-                        <label class="radio-option">
+                        <label class="radio-option" data-tooltip="Row-normalized matrix showing conditional probabilities P(Predicted | True).
+
+Interpretation:
+• Each cell [i,j] = probability of predicting class j given true class i
+• Each row sums to 1.0 (probability distribution)
+• Diagonal elements = per-class recall (sensitivity)
+• Off-diagonal elements = per-class confusion rates
+• Removes class imbalance effects
+
+Use when: You want to analyze classifier performance per true class, compare recall across classes, or when classes have different frequencies.
+
+Example: Cell [Cat, Dog] = 0.15 means 15% of cats were misclassified as dogs.">
                             <input type="radio" name="normalization" value="row">
                             <span>Row normalized</span>
                         </label>
-                        <label class="radio-option">
+                        <label class="radio-option" data-tooltip="Column-normalized matrix showing conditional probabilities P(True | Predicted).
+
+Interpretation:
+• Each cell [i,j] = probability that true class is i given prediction j
+• Each column sums to 1.0 (probability distribution)
+• Diagonal elements = per-class precision (positive predictive value)
+• Off-diagonal elements = per-prediction confusion rates
+• Shows reliability of predictions
+
+IMPORTANT: These are true posterior probabilities P(True | Predicted) ONLY if the test samples come from the same distribution as the training/validation data used to create this confusion matrix.
+
+Use when: You want to analyze prediction reliability under the assumption that future data matches current test distribution.
+
+Example: Cell [Cat, Dog] = 0.20 means 20% of 'Dog' predictions were actually cats (in this dataset).">
                             <input type="radio" name="normalization" value="column">
                             <span>Column normalized</span>
                         </label>
-                        <label class="radio-option">
+                        <label class="radio-option" data-tooltip="Sequential normalization: first by rows, then by columns.
+
+Interpretation:
+• Step 1: Row normalization creates P(Predicted | True)
+• Step 2: Column normalization creates posterior probabilities P(True | Predicted) under uniform prior
+• Columns sum to 1.0 (posterior probability distributions)
+• Rows do not sum to 1.0 (balanced by uniform prior assumption)
+• Represents Bayesian inference assuming equal class priors
+
+Use when: You want posterior probabilities assuming uniform class distribution, remove original class frequency bias, or analyze classifier output under balanced prior assumptions.
+
+Bayesian interpretation: Converts classifier outputs to posterior probabilities assuming P(True class) is uniform across all classes.">
                             <input type="radio" name="normalization" value="row_then_column">
                             <span>Row then column normalized</span>
                         </label>
-                        <label class="radio-option">
+                        <label class="radio-option" data-tooltip="Doubly stochastic matrix via iterative Sinkhorn-Knopp algorithm.
+
+Interpretation:
+• Each row AND each column sums to 1.0 simultaneously
+• Creates a balanced joint probability distribution P(True, Predicted)
+• Preserves relative confusion patterns while removing all bias
+• Converges to optimal transport solution
+• Matrix may not be symmetric (asymmetry has meaning)
+
+Use when: You want to analyze pure confusion patterns without any class frequency or prediction bias effects, study classifier behavior in idealized balanced scenarios.
+
+Mathematical: Finds row scaling r and column scaling c such that diag(r) × Original × diag(c) is doubly stochastic.
+
+Asymmetry interpretation: Reflects inherent directional confusion patterns between classes.">
                             <input type="radio" name="normalization" value="sinkhorn_knopp">
                             <span>Sinkhorn-Knopp normalized</span>
                         </label>
-                        <label class="radio-option">
+                        <label class="radio-option" data-tooltip="Matrix normalized by total sum, creating a joint probability distribution.
+
+Interpretation:
+• Each cell [i,j] = P(True=i AND Predicted=j)
+• All cells sum to 1.0 (complete probability space)
+• Diagonal elements = P(correct classification)
+• Off-diagonal elements = P(specific misclassification types)
+• Preserves original class frequency information
+
+Use when: You want to analyze the overall probability distribution of classification outcomes, study the likelihood of specific confusion types, or maintain class frequency relationships.
+
+Example: Cell [Cat, Dog] = 0.05 means 5% of all classifications are 'cats predicted as dogs'.">
                             <input type="radio" name="normalization" value="sum">
                             <span>Sum normalized</span>
                         </label>
@@ -2162,17 +2230,18 @@ Higher α values = more smoothing = more conservative estimates">
                         position: 'fixed',
                         background: '#333',
                         color: 'white',
-                        padding: '12px 16px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        lineHeight: '1.4',
+                        padding: '16px 20px',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        lineHeight: '1.5',
                         whiteSpace: 'pre-line',
                         zIndex: '9999',
                         opacity: '0.95',
-                        maxWidth: '320px',
+                        maxWidth: '400px',
                         textAlign: 'left',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                        pointerEvents: 'none'
+                        pointerEvents: 'none',
+                        fontFamily: 'system-ui, -apple-system, sans-serif'
                     });
                     
                     // Position tooltip near mouse

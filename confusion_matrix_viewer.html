@@ -357,6 +357,40 @@
             background: #5a6268;
         }
 
+        .alpha-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 15px;
+            padding: 5px 10px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .alpha-input-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #495057;
+            margin: 0;
+        }
+
+        .alpha-input-group input {
+            width: 60px;
+            padding: 3px 6px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .alpha-input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+        }
+
         .decomposition-container {
             margin: 20px 0;
             padding: 20px;
@@ -618,6 +652,18 @@
                             <span class="slider"></span>
                             <span class="label-text">Include answer information</span>
                         </label>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="use-smoothing">
+                            <span class="slider"></span>
+                            <span class="label-text">Additive smoothing</span>
+                        </label>
+                        <div class="alpha-input-group" id="alpha-input-group" style="display: none;">
+                            <label for="alpha-value">α =</label>
+                            <input type="number" id="alpha-value" min="0" max="10" step="0.1" value="0.5" title="Alpha parameter for additive smoothing (pseudocounts added to each cell before normalization):&#10;• α = 0.5: Jeffrey's prior for Dirichlet distribution (recommended)&#10;• α = 1.0: Uniform prior (Laplace's rule of succession)&#10;• α = 0: No smoothing (original counts)&#10;&#10;Smoothing helps with zero counts and provides better probability estimates.">
+                        </div>
                     </div>
                     
                     <div class="control-group">
@@ -968,6 +1014,18 @@
         }
 
         /**
+         * Applies additive smoothing (Laplace smoothing) to matrix values
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
+         * @param {number} alpha - Smoothing parameter (pseudocount)
+         * @returns {Array<Array<number>>} Smoothed matrix with alpha added to each cell
+         */
+        function applyAdditiveSmoothing(matrix_values, alpha = 0.5) {
+            return matrix_values.map(row => 
+                row.map(val => val + alpha)
+            );
+        }
+
+        /**
          * Normalizes matrix by dividing all elements by the total sum
          * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
          * @returns {Array<Array<number>>} Sum-normalized matrix (joint probability distribution)
@@ -985,26 +1043,34 @@
         }
 
         /**
-         * Applies the selected normalization to matrix values
+         * Applies the selected normalization to matrix values with optional preprocessing
          * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
          * @param {string} normalization_type - Type of normalization to apply
+         * @param {boolean} use_smoothing - Whether to apply additive smoothing
+         * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * @returns {Array<Array<number>>} Normalized matrix
          */
-        function applyNormalization(matrix_values, normalization_type) {
+        function applyNormalization(matrix_values, normalization_type, use_smoothing = false, alpha = 0.5) {
+            // Apply smoothing preprocessing if enabled
+            let processed_matrix = matrix_values;
+            if (use_smoothing) {
+                processed_matrix = applyAdditiveSmoothing(matrix_values, alpha);
+            }
+            
             switch (normalization_type) {
                 case 'row':
-                    return normalizeByRows(matrix_values);
+                    return normalizeByRows(processed_matrix);
                 case 'column':
-                    return normalizeByColumns(matrix_values);
+                    return normalizeByColumns(processed_matrix);
                 case 'row_then_column':
-                    return normalizeRowThenColumn(matrix_values);
+                    return normalizeRowThenColumn(processed_matrix);
                 case 'sinkhorn_knopp':
-                    return normalizeSinkhornKnopp(matrix_values);
+                    return normalizeSinkhornKnopp(processed_matrix);
                 case 'sum':
-                    return normalizeBySum(matrix_values);
+                    return normalizeBySum(processed_matrix);
                 case 'none':
                 default:
-                    return matrix_values;
+                    return processed_matrix;
             }
         }
 
@@ -1045,9 +1111,9 @@
          * @param {boolean} include_info - Whether to include answer information row
          * side-effects: Modifies DOM element with id 'matrix-container'
          */
-        function renderConfusionMatrix(parsed_data, normalization_type = 'none', include_sums = true, include_info = true) {
+        function renderConfusionMatrix(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
             const matrix_container = document.getElementById('matrix-container');
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type);
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha);
             const normalized_intensities = calculateColorIntensities(normalized_matrix);
             
             // Calculate row sums, column sums, and total sum
@@ -1661,13 +1727,15 @@
          * Calculates and displays matrix statistics
          * @param {Object} parsed_data - Parsed table data
          * @param {string} normalization_type - Type of normalization applied
+         * @param {boolean} use_smoothing - Whether smoothing was applied
+         * @param {number} alpha - Smoothing parameter used
          * side-effects: Modifies DOM element with id 'stats-container'
          */
-        function displayMatrixStatistics(parsed_data, normalization_type = 'none') {
+        function displayMatrixStatistics(parsed_data, normalization_type = 'none', use_smoothing = false, alpha = 0.5) {
             const stats_container = document.getElementById('stats-container');
             
             // Use normalized matrix for statistics
-            const display_matrix = applyNormalization(parsed_data.matrix_values, normalization_type);
+            const display_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha);
             
             // Calculate statistics
             const all_values = display_matrix.flat();
@@ -1863,11 +1931,13 @@
                 const selected_normalization = document.querySelector('input[name="normalization"]:checked').value;
                 const include_sums = document.getElementById('include-sums').checked;
                 const include_info = document.getElementById('include-info').checked;
+                const use_smoothing = document.getElementById('use-smoothing').checked;
+                const alpha = parseFloat(document.getElementById('alpha-value').value);
                 
                 updateMatrixTitle(selected_normalization);
-                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info);
+                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
                 renderTextView(parsed_data, selected_normalization, include_sums);
-                displayMatrixStatistics(parsed_data, selected_normalization);
+                displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha);
                 
                 // Show decomposition only for Sinkhorn-Knopp normalization
                 if (selected_normalization === 'sinkhorn_knopp') {
@@ -1901,11 +1971,13 @@
                 const selected_normalization = document.querySelector('input[name="normalization"]:checked').value;
                 const include_sums = document.getElementById('include-sums').checked;
                 const include_info = document.getElementById('include-info').checked;
+                const use_smoothing = document.getElementById('use-smoothing').checked;
+                const alpha = parseFloat(document.getElementById('alpha-value').value);
                 
                 updateMatrixTitle(selected_normalization);
-                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info);
+                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
                 renderTextView(parsed_data, selected_normalization, include_sums);
-                displayMatrixStatistics(parsed_data, selected_normalization);
+                displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha);
                 
                 // Show decomposition only for Sinkhorn-Knopp normalization
                 if (selected_normalization === 'sinkhorn_knopp') {
@@ -1929,6 +2001,12 @@
             }
         });
         
+        // Add event listener for alpha value input
+        document.getElementById('alpha-value').addEventListener('input', function() {
+            // Update matrix when alpha value changes
+            updateMatrixNormalization();
+        });
+        
         // Add event listeners for normalization radio buttons
         document.addEventListener('change', function(event) {
             if (event.target.name === 'normalization') {
@@ -1938,6 +2016,12 @@
                 updateMatrixNormalization();
             }
             if (event.target.id === 'include-info') {
+                updateMatrixNormalization();
+            }
+            if (event.target.id === 'use-smoothing') {
+                // Show/hide alpha input based on smoothing toggle
+                const alpha_group = document.getElementById('alpha-input-group');
+                alpha_group.style.display = event.target.checked ? 'flex' : 'none';
                 updateMatrixNormalization();
             }
         });

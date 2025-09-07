@@ -34,6 +34,41 @@
             text-align: center;
         }
 
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .language-selector label {
+            font-size: 20px;
+            margin: 0;
+        }
+
+        .language-selector select {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            color: white;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .language-selector select:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .language-selector select:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+        }
+
         .header h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
@@ -531,10 +566,14 @@
             padding: 8px 12px;
             border-radius: 4px;
             font-size: 12px;
-            white-space: nowrap;
+            white-space: normal;
+            word-wrap: break-word;
+            max-width: min(300px, calc(100vw - 20px));
+            width: max-content;
             z-index: 1000;
             opacity: 0.95;
             margin-bottom: 5px;
+            box-sizing: border-box;
         }
 
         .stat-box[data-tooltip]:hover::before {
@@ -631,7 +670,14 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
+        <div class="header" style="position: relative;">
+            <div class="language-selector">
+                <label for="language-select">🌐</label>
+                <select id="language-select">
+                    <option value="en">English</option>
+                    <option value="ru">Русский</option>
+                </select>
+            </div>
             <h1>Confusion Matrix Viewer</h1>
             <p>Paste your tab-separated table data and visualize it as a color-coded confusion matrix</p>
         </div>
@@ -639,7 +685,7 @@
         <div class="content">
             <div class="input-section">
                 <h2>Input Data</h2>
-                <textarea id="table-input" placeholder="Paste your table here (tab or space separated)...&#10;Example:&#10;Class1	Class2	Class3&#10;0.85	0.10	0.05&#10;0.15	0.80	0.05&#10;0.05	0.15	0.80"></textarea>
+                <textarea id="table-input" placeholder=""></textarea>
                 <div class="button-container">
                     <button id="parse-button">Generate Confusion Matrix</button>
                 </div>
@@ -823,7 +869,137 @@ Higher α values = more smoothing = more conservative estimates">
         </div>
     </div>
 
+    <script src="translations.js"></script>
     <script>
+        // i18n
+        let LANGUAGES = {};
+        let currentLanguage = 'en';
+
+        async function loadTranslations() {
+            return new Promise((resolve) => {
+                // Prefer window.LANGUAGES populated by translations.js
+                if (window.LANGUAGES && Object.keys(window.LANGUAGES).length > 0) {
+                    LANGUAGES = window.LANGUAGES;
+                    resolve();
+                    return;
+                }
+                // Fallback: check inline <script id="translations-json"> with JSON content
+                const inline = document.getElementById('translations-json');
+                if (inline && inline.textContent) {
+                    try {
+                        window.LANGUAGES = JSON.parse(inline.textContent);
+                        LANGUAGES = window.LANGUAGES;
+                    } catch (e) {
+                        console.error('Failed to parse inline translations:', e);
+                        window.LANGUAGES = {};
+                        LANGUAGES = {};
+                    }
+                }
+                resolve();
+            });
+        }
+
+        function t(key) {
+            const parts = key.split('.');
+            let obj = LANGUAGES?.[currentLanguage]?.strings;
+            if (!obj) {
+                console.error(`i18n: language '${currentLanguage}' not loaded`);
+                return '';
+            }
+            for (const part of parts) {
+                if (obj && Object.prototype.hasOwnProperty.call(obj, part)) {
+                    obj = obj[part];
+                } else {
+                    console.error(`i18n: missing key '${key}' for language '${currentLanguage}'`);
+                    return '';
+                }
+            }
+            if (typeof obj !== 'string') {
+                console.error(`i18n: value for key '${key}' is not a string in language '${currentLanguage}'`);
+                return '';
+            }
+            return obj;
+        }
+
+        function updateUILanguage() {
+            const headerTitle = document.querySelector('.header h1');
+            if (headerTitle) headerTitle.textContent = t('pageTitle');
+            const headerSub = document.querySelector('.header p');
+            if (headerSub) headerSub.textContent = t('pageSubtitle');
+
+            const inputTitle = document.querySelector('.input-section h2');
+            if (inputTitle) inputTitle.textContent = t('inputDataTitle');
+            const textarea = document.getElementById('table-input');
+            if (textarea) {
+                textarea.placeholder = t('inputPlaceholder');
+
+                // Update example data in textarea if it contains default example
+                const currentValue = textarea.value.trim();
+                const englishExample = LANGUAGES?.en?.strings?.exampleData || '';
+                const russianExample = LANGUAGES?.ru?.strings?.exampleData || '';
+
+                // If current value is a default example (in any language), update it
+                if (currentValue === englishExample || currentValue === russianExample) {
+                    textarea.value = t('exampleData');
+                    // Re-process the input to update the matrix display
+                    if (typeof processTableInput === 'function') {
+                        processTableInput();
+                    }
+                }
+            }
+            const genBtn = document.getElementById('parse-button');
+            if (genBtn) genBtn.textContent = t('generateButton');
+
+            const normTitle = document.querySelector('.normalization-section h3');
+            if (normTitle) normTitle.textContent = t('normalizationTitle');
+            const radioOptions = document.querySelectorAll('.normalization-controls .radio-option');
+            if (radioOptions.length >= 6) {
+                radioOptions[0].querySelector('span').textContent = t('normOriginal');
+                radioOptions[1].querySelector('span').textContent = t('normRow');
+                radioOptions[2].querySelector('span').textContent = t('normColumn');
+                radioOptions[3].querySelector('span').textContent = t('normRowColumn');
+                radioOptions[4].querySelector('span').textContent = t('normSinkhorn');
+                radioOptions[5].querySelector('span').textContent = t('normSum');
+
+                // tooltips
+                radioOptions[0].setAttribute('data-tooltip', t('tooltips.original'));
+                radioOptions[1].setAttribute('data-tooltip', t('tooltips.rowNorm'));
+                radioOptions[2].setAttribute('data-tooltip', t('tooltips.columnNorm'));
+                radioOptions[3].setAttribute('data-tooltip', t('tooltips.rowColumnNorm'));
+                radioOptions[4].setAttribute('data-tooltip', t('tooltips.sinkhornNorm'));
+                radioOptions[5].setAttribute('data-tooltip', t('tooltips.sumNorm'));
+            }
+
+            // Controls
+            const labelTexts = document.querySelectorAll('.label-text');
+            if (labelTexts.length >= 3) {
+                labelTexts[0].textContent = t('includeRowColumnSums');
+                labelTexts[1].textContent = t('includeAnswerInfo');
+                labelTexts[2].textContent = t('additiveSmoothing');
+            }
+            const smoothingToggle = document.querySelector('.toggle-switch[data-tooltip]');
+            if (smoothingToggle) smoothingToggle.setAttribute('data-tooltip', t('tooltips.smoothingToggle'));
+            const alphaInput = document.getElementById('alpha-value');
+            if (alphaInput) alphaInput.setAttribute('data-tooltip', t('tooltips.alphaParam'));
+
+            // View mode
+            const viewModeLabels = document.querySelectorAll('.control-group label');
+            for (let label of viewModeLabels) {
+                if (label.textContent && label.textContent.includes('View Mode')) {
+                    label.textContent = t('viewMode');
+                    break;
+                }
+            }
+            const viewButtons = document.querySelectorAll('.view-btn');
+            if (viewButtons.length >= 2) {
+                viewButtons[0].textContent = t('tableView');
+                viewButtons[1].textContent = t('tabSeparatedText');
+            }
+            const downloadBtn = document.getElementById('download-csv-btn');
+            if (downloadBtn) downloadBtn.textContent = t('downloadCSV');
+
+            initializeTooltips();
+        }
         /**
          * Tests the table parser with various input formats
          * @returns {boolean} True if all tests pass
@@ -1280,7 +1456,11 @@ Higher α values = more smoothing = more conservative estimates">
             // Corner cell
             const corner_cell = document.createElement('th');
             corner_cell.className = 'corner';
-            corner_cell.textContent = 'Predicted →\nActual ↓';
+            try {
+                corner_cell.textContent = `${t('predictedLabel')}\n${t('actualLabel')}`;
+            } catch (_) {
+                corner_cell.textContent = 'Predicted →\nActual ↓';
+            }
             corner_cell.style.whiteSpace = 'pre-line';
             header_row.appendChild(corner_cell);
             
@@ -1294,7 +1474,7 @@ Higher α values = more smoothing = more conservative estimates">
             // Sum column header
             if (include_sums) {
                 const sum_header_cell = document.createElement('th');
-                sum_header_cell.textContent = 'Sum';
+                sum_header_cell.textContent = t('sumLabel');
                 sum_header_cell.style.backgroundColor = '#e9ecef';
                 sum_header_cell.style.fontWeight = 'bold';
                 header_row.appendChild(sum_header_cell);
@@ -1349,7 +1529,7 @@ Higher α values = more smoothing = more conservative estimates">
                 // Sum row header
                 const sum_row_header = document.createElement('th');
                 sum_row_header.className = 'row-header';
-                sum_row_header.textContent = 'Sum';
+                sum_row_header.textContent = t('sumLabel');
                 sum_row_header.style.backgroundColor = '#e9ecef';
                 sum_row_header.style.fontWeight = 'bold';
                 sum_row_header.style.borderTop = '2px solid #dee2e6';
@@ -1384,7 +1564,7 @@ Higher α values = more smoothing = more conservative estimates">
                 // Info row header
                 const info_row_header = document.createElement('th');
                 info_row_header.className = 'row-header';
-                info_row_header.textContent = 'Answer Info (bits)';
+                info_row_header.textContent = t('answerInfoLabel');
                 info_row_header.style.backgroundColor = '#e3f2fd';
                 info_row_header.style.fontWeight = 'bold';
                 info_row_header.style.borderTop = '2px solid #90caf9';
@@ -1501,9 +1681,9 @@ Higher α values = more smoothing = more conservative estimates">
                 
                 // Add reconstruction formula
                 text_content += '\n';
-                text_content += '# RAS Decomposition: DoublyStochastic[i,j] = r[i] × Original[i,j] × c[j]\n';
-                text_content += '# To reconstruct original: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])\n';
-                text_content += '# Row scaling factors (r) and column scaling factors (c) are included above\n';
+                text_content += '# ' + t('tooltips.rasTooltip') + '\n';
+                text_content += '# ' + t('tooltips.reconstructionTooltip') + '\n';
+                text_content += '# ' + t('tooltips.rowScalingFactors') + ' and ' + t('tooltips.columnScalingFactors') + ' are included above\n';
             }
             
             return text_content;
@@ -1548,7 +1728,7 @@ Higher α values = more smoothing = more conservative estimates">
             // Header row
             csv_content += ',' + parsed_data.column_labels.map(label => `"${label}"`).join(',');
             if (include_sums) {
-                csv_content += ',"Sum"';
+                csv_content += ',"' + t('sumLabel') + '"';
             }
             if (decomposition) {
                 csv_content += ',"Row Scaling (r)"';
@@ -1570,7 +1750,7 @@ Higher α values = more smoothing = more conservative estimates">
             
             // Sum row
             if (include_sums) {
-                csv_content += '"Sum",';
+                csv_content += '"' + t('sumLabel') + '",';
                 csv_content += column_sums.map(val => val.toFixed(4)).join(',');
                 csv_content += ',' + total_sum.toFixed(4);
                 if (decomposition) {
@@ -1591,9 +1771,9 @@ Higher α values = more smoothing = more conservative estimates">
                 
                 // Add reconstruction formula as comment
                 csv_content += '\n';
-                csv_content += '"# RAS Decomposition: DoublyStochastic[i,j] = r[i] × Original[i,j] × c[j]"\n';
-                csv_content += '"# To reconstruct original: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])"\n';
-                csv_content += '"# Row scaling factors (r) and column scaling factors (c) are included above"\n';
+                csv_content += '"# ' + t('tooltips.rasTooltip') + '"\n';
+                csv_content += '"# ' + t('tooltips.reconstructionTooltip') + '"\n';
+                csv_content += '"# ' + t('tooltips.rowScalingFactors') + ' and ' + t('tooltips.columnScalingFactors') + ' are included above"\n';
             }
             
             return csv_content;
@@ -1889,7 +2069,7 @@ Higher α values = more smoothing = more conservative estimates">
             const answer_information = calculateClassifierAnswerInformation(display_matrix);
             
             // Create stat boxes
-            const normalization_labels = {
+            const normalization_labels = (LANGUAGES[currentLanguage]?.strings?.normalizationNames) || {
                 'none': 'Original',
                 'row': 'Row Normalized',
                 'column': 'Column Normalized', 
@@ -1899,15 +2079,15 @@ Higher α values = more smoothing = more conservative estimates">
             };
             
             const statistics = [
-                { label: 'Normalization', value: normalization_labels[normalization_type] || 'Original', tooltip: 'Type of normalization applied to the matrix' },
-                { label: 'Dimensions', value: matrix_dimensions, tooltip: 'Matrix size (rows × columns)' },
-                { label: 'Min Value', value: min_value.toFixed(4), tooltip: 'Smallest value in the matrix' },
-                { label: 'Max Value', value: max_value.toFixed(4), tooltip: 'Largest value in the matrix' },
-                { label: 'Mean Value', value: mean_value.toFixed(4), tooltip: 'Average of all matrix values' },
-                { label: 'Trace', value: trace_value.toFixed(4), tooltip: 'Sum of diagonal elements (correctly classified instances)' },
-                { label: 'Trace/n_classes', value: normalized_trace.toFixed(4), tooltip: 'Average accuracy per class (trace divided by number of classes)' },
-                { label: 'Mutual Information', value: mutual_info.toFixed(4), tooltip: 'MI = ∑∑ P(x,y) × log₂(P(x,y) / (P(x)×P(y))) - dependence between predicted and actual classes (bits)' },
-                { label: 'Normalized MI', value: normalized_mutual_info.toFixed(4), tooltip: 'NMI = MI / √(H(X) × H(Y)) - geometric mean normalization, range [0,1]' }
+                { label: t('matrixTitle'), value: normalization_labels[normalization_type], tooltip: '' },
+                { label: t('stats.dimensions'), value: matrix_dimensions, tooltip: t('stats.dimensionsTip') },
+                { label: t('stats.min'), value: min_value.toFixed(4), tooltip: t('stats.minTip') },
+                { label: t('stats.max'), value: max_value.toFixed(4), tooltip: t('stats.maxTip') },
+                { label: t('stats.mean'), value: mean_value.toFixed(4), tooltip: t('stats.meanTip') },
+                { label: t('stats.trace'), value: trace_value.toFixed(4), tooltip: t('stats.traceTip') },
+                { label: t('stats.tracePerClass'), value: normalized_trace.toFixed(4), tooltip: t('stats.tracePerClassTip') },
+                { label: t('stats.mi'), value: mutual_info.toFixed(4), tooltip: t('stats.miTip') },
+                { label: t('stats.nmi'), value: normalized_mutual_info.toFixed(4), tooltip: t('stats.nmiTip') }
             ];
             
             stats_container.innerHTML = '';
@@ -1961,24 +2141,24 @@ Higher α values = more smoothing = more conservative estimates">
             `).join('');
             
             decomposition_container.innerHTML = `
-                <div class="decomposition-title" data-tooltip="RAS Decomposition: DoublyStochastic = diag(r) × Original × diag(c)">
-                    RAS Decomposition (Row And column Scaling)
+                <div class="decomposition-title" data-tooltip="${t('tooltips.rasTooltip')}">
+                    ${t('tooltips.rasTitle')}
                 </div>
                 <div class="decomposition-content">
                     <div class="scaling-section">
-                        <h4>Row Scaling Factors (r)</h4>
+                        <h4>${t('tooltips.rowScalingFactors')}</h4>
                         <div class="scaling-values">
                             ${row_scaling_html}
                         </div>
                     </div>
                     <div class="scaling-section">
-                        <h4>Column Scaling Factors (c)</h4>
+                        <h4>${t('tooltips.columnScalingFactors')}</h4>
                         <div class="scaling-values">
                             ${column_scaling_html}
                         </div>
                     </div>
-                    <div class="reconstruction-formula" data-tooltip="To reconstruct original matrix: divide doubly stochastic by both r[i] and c[j]">
-                        Reconstruction: Original[i,j] = DoublyStochastic[i,j] / (r[i] × c[j])
+                    <div class="reconstruction-formula" data-tooltip="${t('tooltips.reconstructionTooltip')}">
+                        ${t('tooltips.reconstructionFormula')}
                     </div>
                 </div>
             `;
@@ -2030,16 +2210,13 @@ Higher α values = more smoothing = more conservative estimates">
          */
         function updateMatrixTitle(normalization_type) {
             const title_element = document.getElementById('matrix-title');
-            const normalization_names = {
-                'none': 'Confusion Matrix (Original)',
-                'row': 'Confusion Matrix (Row Normalized)',
-                'column': 'Confusion Matrix (Column Normalized)',
-                'row_then_column': 'Confusion Matrix (Row → Column Normalized)',
-                'sinkhorn_knopp': 'Confusion Matrix (Sinkhorn-Knopp Normalized)',
-                'sum': 'Confusion Matrix (Sum Normalized)'
-            };
-            
-            title_element.textContent = normalization_names[normalization_type] || 'Confusion Matrix';
+            const normName = LANGUAGES?.[currentLanguage]?.strings?.normalizationNames?.[normalization_type];
+            if (!normName) {
+                console.error(`i18n: missing normalization name for '${normalization_type}'`);
+                title_element.textContent = `${t('matrixTitle')} (${normalization_type})`;
+                return;
+            }
+            title_element.textContent = `${t('matrixTitle')} (${normName})`;
         }
 
         /**
@@ -2216,7 +2393,7 @@ Higher α values = more smoothing = more conservative estimates">
             existing_tooltips.forEach(tooltip => tooltip.remove());
             
             // Find all elements with data-tooltip
-            const tooltip_elements = document.querySelectorAll('[data-tooltip]');
+            const tooltip_elements = document.querySelectorAll('[data-tooltip]:not(.stat-box)');
             
             tooltip_elements.forEach(element => {
                 element.addEventListener('mouseenter', function(event) {
@@ -2269,16 +2446,40 @@ Higher α values = more smoothing = more conservative estimates">
                 runParserTests();
             }
             
-            // Initialize tooltips
-            initializeTooltips();
+            // Load translations and init i18n
+            loadTranslations().then(() => {
+                const select = document.getElementById('language-select');
+                if (select && select.value) currentLanguage = select.value;
+                updateUILanguage();
+                initializeTooltips();
+            }).catch((e) => {
+                console.error('i18n: failed to load translations', e);
+            });
+
+            // Language selector
+            const languageSelect = document.getElementById('language-select');
+            if (languageSelect) {
+                languageSelect.addEventListener('change', function() {
+                    currentLanguage = this.value;
+                    updateUILanguage();
+                    const selected_normalization = document.querySelector('input[name="normalization"]:checked');
+                    if (!selected_normalization) {
+                        console.error('i18n: normalization radio not found');
+                        return;
+                    }
+                    updateMatrixTitle(selected_normalization.value);
+                    // Re-render matrix/text/stats so dynamic row headers (e.g., Answer Info) are translated immediately
+                    try {
+                        updateMatrixNormalization();
+                    } catch (e) {
+                        console.error('i18n: failed to re-render after language change', e);
+                    }
+                });
+            } else {
+                console.error('i18n: language selector not found');
+            }
             
-            const example_data = `Жираф	Носорог	Краб	Лиса	Муравей
-360	12	24	18	6
-4	200	2	8	2
-100	60	3000	600	1600
-100	50	75	1000	30
-500	700	2000	1000	100000
-`;
+            const example_data = t('exampleData');
             
             document.getElementById('table-input').value = example_data;
             processTableInput();

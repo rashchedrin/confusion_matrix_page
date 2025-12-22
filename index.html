@@ -93,6 +93,34 @@
             font-size: 1.4em;
         }
 
+        .template-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .template-selector label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .template-selector select {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .template-selector select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
         #table-input {
             width: 100%;
             height: 150px;
@@ -336,11 +364,11 @@
         }
 
         .view-btn {
-            padding: 8px 16px;
+            padding: 8px 8px;
             border: 2px solid #dee2e6;
             background: white;
             color: #495057;
-            border-radius: 20px;
+            border-radius: 10px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
@@ -771,6 +799,14 @@
         <div class="content">
             <div class="input-section">
                 <h2>Input Data</h2>
+                <div class="template-selector">
+                    <label for="template-select">Template:</label>
+                    <select id="template-select">
+                        <option value="multiclass">Multi-class classifier</option>
+                        <option value="all_positive">All positive (noninformative)</option>
+                        <option value="one_percent_positive">1% positive (noninformative)</option>
+                    </select>
+                </div>
                 <textarea id="table-input" placeholder=""></textarea>
                 <div class="button-container">
                     <button id="parse-button">Generate Confusion Matrix</button>
@@ -1027,18 +1063,50 @@ Higher α values = more smoothing = more conservative estimates">
 
             const inputTitle = document.querySelector('.input-section h2');
             if (inputTitle) inputTitle.textContent = t('inputDataTitle');
+            
+            // Update template selector
+            const templateLabel = document.querySelector('.template-selector label');
+            if (templateLabel) templateLabel.textContent = t('templateLabel');
+            const templateSelect = document.getElementById('template-select');
+            if (templateSelect) {
+                const options = templateSelect.querySelectorAll('option');
+                if (options.length >= 3) {
+                    options[0].textContent = t('templates.multiclass');
+                    options[1].textContent = t('templates.allPositive');
+                    options[2].textContent = t('templates.onePercentPositive');
+                }
+            }
+            
             const textarea = document.getElementById('table-input');
             if (textarea) {
                 textarea.placeholder = t('inputPlaceholder');
 
-                // Update example data in textarea if it contains default example
+                // Update template data in textarea if it contains any known template
                 const currentValue = textarea.value.trim();
-                const englishExample = LANGUAGES?.en?.strings?.exampleData || '';
-                const russianExample = LANGUAGES?.ru?.strings?.exampleData || '';
+                const templateSelect = document.getElementById('template-select');
+                const selectedTemplate = templateSelect ? templateSelect.value : 'multiclass';
+                
+                // Collect all template data from all languages
+                const allTemplateData = [];
+                for (const lang of Object.keys(LANGUAGES)) {
+                    const langStrings = LANGUAGES[lang]?.strings;
+                    if (langStrings?.exampleData) allTemplateData.push(langStrings.exampleData);
+                    if (langStrings?.templateData) {
+                        for (const key of Object.keys(langStrings.templateData)) {
+                            allTemplateData.push(langStrings.templateData[key]);
+                        }
+                    }
+                }
 
-                // If current value is a default example (in any language), update it
-                if (currentValue === englishExample || currentValue === russianExample) {
-                    textarea.value = t('exampleData');
+                // If current value is a known template (in any language), update it
+                if (allTemplateData.includes(currentValue)) {
+                    const template_map = {
+                        'multiclass': 'multiclass',
+                        'all_positive': 'allPositive',
+                        'one_percent_positive': 'onePercentPositive'
+                    };
+                    const translation_key = template_map[selectedTemplate];
+                    textarea.value = t('templateData.' + translation_key) || t('exampleData');
                     // Re-process the input to update the matrix display
                     if (typeof processTableInput === 'function') {
                         processTableInput();
@@ -2614,6 +2682,20 @@ Higher α values = more smoothing = more conservative estimates">
 
         // Event listeners
         document.getElementById('parse-button').addEventListener('click', processTableInput);
+        
+        // Template selector event listener
+        document.getElementById('template-select').addEventListener('change', function() {
+            const template_key = this.value;
+            const template_map = {
+                'multiclass': 'multiclass',
+                'all_positive': 'allPositive',
+                'one_percent_positive': 'onePercentPositive'
+            };
+            const translation_key = template_map[template_key];
+            const template_data = t('templateData.' + translation_key) || t('exampleData');
+            document.getElementById('table-input').value = template_data;
+            processTableInput();
+        });
         
         document.getElementById('table-input').addEventListener('keydown', function(event) {
             if (event.ctrlKey && event.key === 'Enter') {

@@ -7,6 +7,17 @@ window.LANGUAGES = {
       inputDataTitle: 'Input Data',
       inputPlaceholder: 'Paste your table here (tab or space separated)...\nExample:\nGiraffe\tRhino\tCrab\n360\t12\t24\n4\t200\t2\n100\t60\t3000',
       exampleData: 'Giraffe\tRhino\tCrab\tFox\tAnt\n360\t12\t24\t18\t6\n2\t240\t0\t4\t2\n100\t40\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t10\t2000\t1000\t100000',
+      templateLabel: 'Template:',
+      templates: {
+        multiclass: 'Multi-class classifier',
+        allPositive: 'All positive (noninformative)',
+        onePercentPositive: '1% positive (noninformative)'
+      },
+      templateData: {
+        multiclass: 'Giraffe\tRhino\tCrab\tFox\tAnt\n360\t12\t24\t18\t6\n2\t240\t0\t4\t2\n100\t40\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t10\t2000\t1000\t100000',
+        allPositive: 'Positive\tNegative\n950\t0\n50\t0',
+        onePercentPositive: 'Positive\tNegative\n2000\t20\n100\t1'
+      },
       generateButton: 'Visualize',
       normalizationTitle: 'Normalization Options',
       normOriginal: 'Original (No normalization)',
@@ -16,8 +27,8 @@ window.LANGUAGES = {
       normSinkhorn: 'Sinkhorn-Knopp normalized',
       normSum: 'Sum normalized',
       viewMode: 'View Mode:',
-      tableView: 'Table View',
-      tabSeparatedText: 'Tab-separated Text',
+      tableView: 'Table',
+      tabSeparatedText: 'Text',
       downloadCSV: 'Download as CSV',
       includeRowColumnSums: 'Include row/column sums',
       includeAnswerInfo: 'Include answer information',
@@ -87,6 +98,17 @@ window.LANGUAGES = {
       inputDataTitle: 'Входные данные',
       inputPlaceholder: 'Вставьте сюда таблицу (разделители — табы или пробелы)...\nПример:\nЖираф\tНосорог\tКраб\n360\t12\t24\n4\t200\t2\n100\t60\t3000',
       exampleData: 'Жираф\tНосорог\tКраб\tЛиса\tМуравей\n360\t12\t24\t18\t6\n2\t240\t0\t4\t2\n100\t40\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t10\t2000\t1000\t100000',
+      templateLabel: 'Шаблон:',
+      templates: {
+        multiclass: 'Многоклассовый классификатор',
+        allPositive: 'Все положительные (неинформативный)',
+        onePercentPositive: '1% положительных (неинформативный)'
+      },
+      templateData: {
+        multiclass: 'Жираф\tНосорог\tКраб\tЛиса\tМуравей\n360\t12\t24\t18\t6\n2\t240\t0\t4\t2\n100\t40\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t10\t2000\t1000\t100000',
+        allPositive: 'Положительный\tОтрицательный\n950\t0\n50\t0',
+        onePercentPositive: 'Положительный\tОтрицательный\n2000\t20\n100\t1'
+      },
       generateButton: 'Визуализировать',
       normalizationTitle: 'Опции нормализации',
       normOriginal: 'Оригинальная (без нормализации)',
@@ -97,7 +119,7 @@ window.LANGUAGES = {
       normSum: 'Нормализация по сумме',
       viewMode: 'Режим просмотра:',
       tableView: 'Таблица',
-      tabSeparatedText: 'Текст (табами)',
+      tabSeparatedText: 'Текст',
       downloadCSV: 'Скачать CSV',
       includeRowColumnSums: 'Показывать суммы по строкам/столбцам',
       includeAnswerInfo: 'Показывать информацию ответа',

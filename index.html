@@ -1855,10 +1855,13 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {Object} parsed_data - Parsed table data
          * @param {string} normalization_type - Type of normalization to apply
          * @param {boolean} include_sums - Whether to include row/column sums
+         * @param {boolean} include_info - Whether to include answer information row
+         * @param {boolean} use_smoothing - Whether to apply additive smoothing
+         * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * @returns {string} Tab-separated text representation
          */
-        function generateTabSeparatedText(parsed_data, normalization_type = 'none', include_sums = true) {
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type);
+        function generateTabSeparatedText(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha);
             
             // Get decomposition for Sinkhorn-Knopp
             let decomposition = null;
@@ -1937,6 +1940,20 @@ Higher α values = more smoothing = more conservative estimates">
                 text_content += '# ' + t('tooltips.rowScalingFactors') + ' and ' + t('tooltips.columnScalingFactors') + ' are included above\n';
             }
             
+            // Answer information row
+            if (include_info) {
+                const answer_information = calculateClassifierAnswerInformation(normalized_matrix);
+                text_content += t('answerInfoLabel') + '\t';
+                text_content += answer_information.map(val => formatNumberForText(val, 3)).join('\t');
+                if (include_sums) {
+                    text_content += '\t';  // Empty cell for sum column
+                }
+                if (decomposition) {
+                    text_content += '\t';  // Empty cell for row scaling column
+                }
+                text_content += '\n';
+            }
+            
             return text_content;
         }
 
@@ -1945,10 +1962,13 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {Object} parsed_data - Parsed table data
          * @param {string} normalization_type - Type of normalization to apply
          * @param {boolean} include_sums - Whether to include row/column sums
+         * @param {boolean} include_info - Whether to include answer information row
+         * @param {boolean} use_smoothing - Whether to apply additive smoothing
+         * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * @returns {string} CSV representation
          */
-        function generateCSV(parsed_data, normalization_type = 'none', include_sums = true) {
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type);
+        function generateCSV(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha);
             
             // Get decomposition for Sinkhorn-Knopp
             let decomposition = null;
@@ -2027,6 +2047,20 @@ Higher α values = more smoothing = more conservative estimates">
                 csv_content += '"# ' + t('tooltips.rowScalingFactors') + ' and ' + t('tooltips.columnScalingFactors') + ' are included above"\n';
             }
             
+            // Answer information row
+            if (include_info) {
+                const answer_information = calculateClassifierAnswerInformation(normalized_matrix);
+                csv_content += '"' + t('answerInfoLabel') + '",';
+                csv_content += answer_information.map(val => formatNumberForText(val, 3)).join(',');
+                if (include_sums) {
+                    csv_content += ',';  // Empty cell for sum column
+                }
+                if (decomposition) {
+                    csv_content += ',';  // Empty cell for row scaling column
+                }
+                csv_content += '\n';
+            }
+            
             return csv_content;
         }
 
@@ -2035,11 +2069,14 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {Object} parsed_data - Parsed table data
          * @param {string} normalization_type - Type of normalization to apply
          * @param {boolean} include_sums - Whether to include row/column sums
+         * @param {boolean} include_info - Whether to include answer information row
+         * @param {boolean} use_smoothing - Whether to apply additive smoothing
+         * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * side-effects: Modifies DOM element with id 'text-view-container'
          */
-        function renderTextView(parsed_data, normalization_type = 'none', include_sums = true) {
+        function renderTextView(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
             const text_container = document.getElementById('text-view-container');
-            const text_content = generateTabSeparatedText(parsed_data, normalization_type, include_sums);
+            const text_content = generateTabSeparatedText(parsed_data, normalization_type, include_sums, include_info, use_smoothing, alpha);
             
             text_container.innerHTML = `
                 <div class="text-view-content">${text_content}</div>
@@ -2052,10 +2089,13 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {Object} parsed_data - Parsed table data
          * @param {string} normalization_type - Type of normalization to apply
          * @param {boolean} include_sums - Whether to include row/column sums
+         * @param {boolean} include_info - Whether to include answer information row
+         * @param {boolean} use_smoothing - Whether to apply additive smoothing
+         * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * side-effects: Triggers file download
          */
-        function downloadAsCSV(parsed_data, normalization_type = 'none', include_sums = true) {
-            const csv_content = generateCSV(parsed_data, normalization_type, include_sums);
+        function downloadAsCSV(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
+            const csv_content = generateCSV(parsed_data, normalization_type, include_sums, include_info, use_smoothing, alpha);
             
             const normalization_suffix = normalization_type === 'none' ? '' : `_${normalization_type}`;
             const filename = `confusion_matrix${normalization_suffix}.csv`;
@@ -2503,7 +2543,7 @@ Higher α values = more smoothing = more conservative estimates">
                 
                 updateMatrixTitle(selected_normalization);
                 renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
-                renderTextView(parsed_data, selected_normalization, include_sums);
+                renderTextView(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
                 displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha);
                 // Ensure tooltips/info buttons applied to newly rendered elements
                 initializeTooltips();
@@ -2545,7 +2585,7 @@ Higher α values = more smoothing = more conservative estimates">
                 
                 updateMatrixTitle(selected_normalization);
                 renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
-                renderTextView(parsed_data, selected_normalization, include_sums);
+                renderTextView(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
                 displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha);
                 // Re-apply tooltips/info buttons for updated DOM
                 initializeTooltips();
@@ -2628,8 +2668,11 @@ Higher α values = more smoothing = more conservative estimates">
                 const parsed_data = parseTableData(table_data);
                 const selected_normalization = document.querySelector('input[name="normalization"]:checked').value;
                 const include_sums = document.getElementById('include-sums').checked;
+                const include_info = document.getElementById('include-info').checked;
+                const use_smoothing = document.getElementById('use-smoothing').checked;
+                const alpha = parseFloat(document.getElementById('alpha-value').value);
                 
-                downloadAsCSV(parsed_data, selected_normalization, include_sums);
+                downloadAsCSV(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
             } catch (error) {
                 alert(`Error generating CSV: ${error.message}`);
             }

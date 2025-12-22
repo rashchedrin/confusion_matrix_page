@@ -805,7 +805,7 @@ Use when: You want to analyze classifier performance per true class, compare rec
 
 Example: Cell [Cat, Dog] = 0.15 means 15% of cats were misclassified as dogs.">
                             <input type="radio" name="normalization" value="row">
-                            <span>Row normalized</span>
+                            <span>Normalized by truth (rows)</span>
                         </label>
                         <label class="radio-option" data-tooltip="Column-normalized matrix showing conditional probabilities P(True | Predicted).
 
@@ -822,9 +822,9 @@ Use when: You want to analyze prediction reliability under the assumption that f
 
 Example: Cell [Cat, Dog] = 0.20 means 20% of 'Dog' predictions were actually cats (in this dataset).">
                             <input type="radio" name="normalization" value="column">
-                            <span>Column normalized</span>
+                            <span>Normalized by prediction (columns)</span>
                         </label>
-                        <label class="radio-option" data-tooltip="Sequential normalization: first by rows, then by columns.
+                        <label class="radio-option" data-tooltip="Sequential normalization: first by truth (rows), then by prediction (columns).
 
 Interpretation:
 • Step 1: Row normalization creates P(Predicted | True)
@@ -837,7 +837,7 @@ Use when: You want posterior probabilities assuming uniform class distribution, 
 
 Bayesian interpretation: Converts classifier outputs to posterior probabilities assuming P(True class) is uniform across all classes.">
                             <input type="radio" name="normalization" value="row_then_column">
-                            <span>Row then column normalized</span>
+                            <span>Truth then prediction normalized</span>
                         </label>
                         <label class="radio-option" data-tooltip="Doubly stochastic matrix via iterative Sinkhorn-Knopp algorithm.
 
@@ -2362,9 +2362,9 @@ Higher α values = more smoothing = more conservative estimates">
             // Create stat boxes
             const normalization_labels = (LANGUAGES[currentLanguage]?.strings?.normalizationNames) || {
                 'none': 'Original',
-                'row': 'Row Normalized',
-                'column': 'Column Normalized', 
-                'row_then_column': 'Row→Column',
+                'row': 'By Truth (Rows)',
+                'column': 'By Prediction (Columns)', 
+                'row_then_column': 'Truth → Prediction',
                 'sinkhorn_knopp': 'Sinkhorn-Knopp',
                 'sum': 'Sum Normalized'
             };

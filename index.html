@@ -2355,6 +2355,14 @@ Higher α values = more smoothing = more conservative estimates">
             const trace_value = calculateTrace(display_matrix);
             const num_classes = Math.min(display_matrix.length, display_matrix[0].length);
             const normalized_trace = num_classes > 0 ? trace_value / num_classes : 0;
+            
+            // Calculate minimum diagonal value (worst class accuracy when normalized by truth)
+            const diagonal_values = [];
+            for (let idx = 0; idx < num_classes; idx++) {
+                diagonal_values.push(display_matrix[idx][idx]);
+            }
+            const min_diagonal = diagonal_values.length > 0 ? Math.min(...diagonal_values) : 0;
+            
             const mutual_info = calculateMutualInformation(display_matrix);
             const normalized_mutual_info = calculateNormalizedMutualInformation(display_matrix);
             const answer_information = calculateClassifierAnswerInformation(display_matrix);
@@ -2377,6 +2385,7 @@ Higher α values = more smoothing = more conservative estimates">
                 { label: t('stats.mean'), value: formatNumberForDisplay(mean_value, 4), tooltip: t('stats.meanTip') },
                 { label: t('stats.trace'), value: formatNumberForDisplay(trace_value, 4), tooltip: t('stats.traceTip') },
                 { label: t('stats.tracePerClass'), value: formatNumberForDisplay(normalized_trace, 4), tooltip: t('stats.tracePerClassTip') },
+                { label: t('stats.minDiagonal'), value: formatNumberForDisplay(min_diagonal, 4), tooltip: t('stats.minDiagonalTip') },
                 { label: t('stats.mi'), value: formatNumberForDisplay(mutual_info, 4), tooltip: t('stats.miTip') },
                 { label: t('stats.nmi'), value: formatNumberForDisplay(normalized_mutual_info, 4), tooltip: t('stats.nmiTip') }
             ];

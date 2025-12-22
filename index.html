@@ -957,6 +957,18 @@ Higher α values = more smoothing = more conservative estimates">
 
     <script src="translations.js"></script>
     <script>
+        /**
+         * Throws an error if condition is false
+         * @param {boolean} condition - Condition to check
+         * @param {string} message - Error message if assertion fails
+         * @throws {Error} If condition is false
+         */
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message || 'Assertion failed');
+            }
+        }
+
         // i18n
         let LANGUAGES = {};
         let currentLanguage = 'en';
@@ -1264,6 +1276,97 @@ Higher α values = more smoothing = more conservative estimates">
             const blue_component = 255;
             
             return `rgb(${red_component}, ${green_component}, ${blue_component})`;
+        }
+
+        /**
+         * Converts a digit character to its superscript Unicode equivalent
+         * @param {string} char - Single character (digit or minus sign)
+         * @returns {string} Superscript character
+         */
+        function toSuperscript(char) {
+            const SUPERSCRIPT_MAP = {
+                '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+                '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+                '-': '⁻', '+': '⁺'
+            };
+            return SUPERSCRIPT_MAP[char] || char;
+        }
+
+        /**
+         * Formats a number for display in matrix cells with fancy scientific notation
+         * Uses superscript characters for very small non-zero values (e.g., 5×10⁻⁵⁰)
+         * @param {number} value - The number to format
+         * @param {number} decimal_places - Number of decimal places for fixed notation
+         * @returns {string} Formatted number string with fancy notation for small values
+         */
+        function formatNumberForDisplay(value, decimal_places) {
+            assert(typeof value === 'number', `Expected number, got ${typeof value}`);
+            assert(Number.isInteger(decimal_places) && decimal_places >= 0, 
+                   `decimal_places must be non-negative integer, got ${decimal_places}`);
+            
+            // Exact zero - show just "0" for cleaner display
+            if (value === 0) {
+                return '0';
+            }
+            
+            const fixed_string = value.toFixed(decimal_places);
+            
+            // Check if fixed notation would show as zero (all zeros after decimal point)
+            const would_show_as_zero = parseFloat(fixed_string) === 0;
+            
+            if (!would_show_as_zero) {
+                return fixed_string;
+            }
+            
+            // Use scientific notation for very small non-zero values
+            const exponential = value.toExponential(2);
+            const match = exponential.match(/^(-?)(\d+\.?\d*)e([+-]?\d+)$/);
+            
+            if (!match) {
+                return fixed_string;
+            }
+            
+            const sign = match[1];
+            const mantissa = parseFloat(match[2]);
+            const exponent = match[3];
+            
+            // Convert exponent digits to superscript
+            const superscript_exponent = exponent.split('').map(toSuperscript).join('');
+            
+            // Format mantissa to remove trailing zeros and unnecessary decimal point
+            const formatted_mantissa = mantissa.toString();
+            
+            return `${sign}${formatted_mantissa}×10${superscript_exponent}`;
+        }
+
+        /**
+         * Formats a number for copy-pasteable text output with e notation
+         * Uses standard e notation for very small non-zero values (e.g., 5e-50)
+         * @param {number} value - The number to format
+         * @param {number} decimal_places - Number of decimal places for fixed notation
+         * @returns {string} Formatted number string with e notation for small values
+         */
+        function formatNumberForText(value, decimal_places) {
+            assert(typeof value === 'number', `Expected number, got ${typeof value}`);
+            assert(Number.isInteger(decimal_places) && decimal_places >= 0, 
+                   `decimal_places must be non-negative integer, got ${decimal_places}`);
+            
+            // Exact zero
+            if (value === 0) {
+                return value.toFixed(decimal_places);
+            }
+            
+            const fixed_string = value.toFixed(decimal_places);
+            
+            // Check if fixed notation would show as zero (all zeros after decimal point)
+            const would_show_as_zero = parseFloat(fixed_string) === 0;
+            
+            if (!would_show_as_zero) {
+                return fixed_string;
+            }
+            
+            // Use e notation for very small non-zero values
+            return value.toExponential(2);
         }
 
         /**
@@ -1588,7 +1691,7 @@ Higher α values = more smoothing = more conservative estimates">
                     const cell_value = normalized_matrix[row_index][col_index];
                     const color_intensity = normalized_intensities[row_index][col_index];
                     
-                    data_cell.textContent = cell_value.toFixed(4);
+                    data_cell.textContent = formatNumberForDisplay(cell_value, 4);
                     data_cell.style.backgroundColor = generateColorFromValue(color_intensity);
                     
                     // Add white text for dark cells
@@ -1602,7 +1705,7 @@ Higher α values = more smoothing = more conservative estimates">
                 // Row sum cell
                 if (include_sums) {
                     const row_sum_cell = document.createElement('td');
-                    row_sum_cell.textContent = row_sums[row_index].toFixed(4);
+                    row_sum_cell.textContent = formatNumberForDisplay(row_sums[row_index], 4);
                     row_sum_cell.style.backgroundColor = '#f8f9fa';
                     row_sum_cell.style.fontWeight = 'bold';
                     row_sum_cell.style.borderLeft = '2px solid #dee2e6';
@@ -1628,7 +1731,7 @@ Higher α values = more smoothing = more conservative estimates">
                 // Column sum cells
                 for (let col_index = 0; col_index < column_sums.length; col_index++) {
                     const col_sum_cell = document.createElement('td');
-                    col_sum_cell.textContent = column_sums[col_index].toFixed(4);
+                    col_sum_cell.textContent = formatNumberForDisplay(column_sums[col_index], 4);
                     col_sum_cell.style.backgroundColor = '#f8f9fa';
                     col_sum_cell.style.fontWeight = 'bold';
                     col_sum_cell.style.borderTop = '2px solid #dee2e6';
@@ -1637,7 +1740,7 @@ Higher α values = more smoothing = more conservative estimates">
                 
                 // Total sum cell (intersection of Sum row and Sum column)
                 const total_sum_cell = document.createElement('td');
-                total_sum_cell.textContent = total_sum.toFixed(4);
+                total_sum_cell.textContent = formatNumberForDisplay(total_sum, 4);
                 total_sum_cell.style.backgroundColor = '#e9ecef';
                 total_sum_cell.style.fontWeight = 'bold';
                 total_sum_cell.style.borderTop = '2px solid #dee2e6';
@@ -1723,7 +1826,7 @@ Higher α values = more smoothing = more conservative estimates">
                 // Answer information cells
                 for (let col_index = 0; col_index < answer_information.length; col_index++) {
                     const info_cell = document.createElement('td');
-                    info_cell.textContent = answer_information[col_index].toFixed(3);
+                    info_cell.textContent = formatNumberForDisplay(answer_information[col_index], 3);
                     info_cell.style.backgroundColor = '#f3e5f5';
                     info_cell.style.fontWeight = 'bold';
                     info_cell.style.borderTop = '2px solid #90caf9';
@@ -1796,9 +1899,9 @@ Higher α values = more smoothing = more conservative estimates">
             // Data rows
             for (let row_index = 0; row_index < normalized_matrix.length; row_index++) {
                 text_content += parsed_data.row_labels[row_index] + '\t';
-                text_content += normalized_matrix[row_index].map(val => val.toFixed(4)).join('\t');
+                text_content += normalized_matrix[row_index].map(val => formatNumberForText(val, 4)).join('\t');
                 if (include_sums) {
-                    text_content += '\t' + row_sums[row_index].toFixed(4);
+                    text_content += '\t' + formatNumberForText(row_sums[row_index], 4);
                 }
                 if (decomposition) {
                     text_content += '\t' + decomposition.row_scaling[row_index].toFixed(6);
@@ -1809,8 +1912,8 @@ Higher α values = more smoothing = more conservative estimates">
             // Sum row
             if (include_sums) {
                 text_content += 'Sum\t';
-                text_content += column_sums.map(val => val.toFixed(4)).join('\t');
-                text_content += '\t' + total_sum.toFixed(4);
+                text_content += column_sums.map(val => formatNumberForText(val, 4)).join('\t');
+                text_content += '\t' + formatNumberForText(total_sum, 4);
                 if (decomposition) {
                     text_content += '\t';  // Empty cell for row scaling column
                 }
@@ -1886,9 +1989,9 @@ Higher α values = more smoothing = more conservative estimates">
             // Data rows
             for (let row_index = 0; row_index < normalized_matrix.length; row_index++) {
                 csv_content += `"${parsed_data.row_labels[row_index]}",`;
-                csv_content += normalized_matrix[row_index].map(val => val.toFixed(4)).join(',');
+                csv_content += normalized_matrix[row_index].map(val => formatNumberForText(val, 4)).join(',');
                 if (include_sums) {
-                    csv_content += ',' + row_sums[row_index].toFixed(4);
+                    csv_content += ',' + formatNumberForText(row_sums[row_index], 4);
                 }
                 if (decomposition) {
                     csv_content += ',' + decomposition.row_scaling[row_index].toFixed(6);
@@ -1899,8 +2002,8 @@ Higher α values = more smoothing = more conservative estimates">
             // Sum row
             if (include_sums) {
                 csv_content += '"' + t('sumLabel') + '",';
-                csv_content += column_sums.map(val => val.toFixed(4)).join(',');
-                csv_content += ',' + total_sum.toFixed(4);
+                csv_content += column_sums.map(val => formatNumberForText(val, 4)).join(',');
+                csv_content += ',' + formatNumberForText(total_sum, 4);
                 if (decomposition) {
                     csv_content += ',';  // Empty cell for row scaling column
                 }
@@ -2229,13 +2332,13 @@ Higher α values = more smoothing = more conservative estimates">
             const statistics = [
                 { label: t('matrixTitle'), value: normalization_labels[normalization_type], tooltip: '' },
                 { label: t('stats.dimensions'), value: matrix_dimensions, tooltip: t('stats.dimensionsTip') },
-                { label: t('stats.min'), value: min_value.toFixed(4), tooltip: t('stats.minTip') },
-                { label: t('stats.max'), value: max_value.toFixed(4), tooltip: t('stats.maxTip') },
-                { label: t('stats.mean'), value: mean_value.toFixed(4), tooltip: t('stats.meanTip') },
-                { label: t('stats.trace'), value: trace_value.toFixed(4), tooltip: t('stats.traceTip') },
-                { label: t('stats.tracePerClass'), value: normalized_trace.toFixed(4), tooltip: t('stats.tracePerClassTip') },
-                { label: t('stats.mi'), value: mutual_info.toFixed(4), tooltip: t('stats.miTip') },
-                { label: t('stats.nmi'), value: normalized_mutual_info.toFixed(4), tooltip: t('stats.nmiTip') }
+                { label: t('stats.min'), value: formatNumberForDisplay(min_value, 4), tooltip: t('stats.minTip') },
+                { label: t('stats.max'), value: formatNumberForDisplay(max_value, 4), tooltip: t('stats.maxTip') },
+                { label: t('stats.mean'), value: formatNumberForDisplay(mean_value, 4), tooltip: t('stats.meanTip') },
+                { label: t('stats.trace'), value: formatNumberForDisplay(trace_value, 4), tooltip: t('stats.traceTip') },
+                { label: t('stats.tracePerClass'), value: formatNumberForDisplay(normalized_trace, 4), tooltip: t('stats.tracePerClassTip') },
+                { label: t('stats.mi'), value: formatNumberForDisplay(mutual_info, 4), tooltip: t('stats.miTip') },
+                { label: t('stats.nmi'), value: formatNumberForDisplay(normalized_mutual_info, 4), tooltip: t('stats.nmiTip') }
             ];
             
             stats_container.innerHTML = '';

@@ -946,9 +946,20 @@ The α parameter controls the amount of smoothing applied.">
                             <span class="slider"></span>
                             <span class="label-text">Additive smoothing</span>
                         </label>
-                        <div class="alpha-input-group" id="alpha-input-group" style="display: flex;">
-                            <label for="alpha-value">α =</label>
-                            <input type="number" id="alpha-value" min="0" max="10" step="0.1" value="0.5" data-tooltip="Alpha parameter (pseudocounts added to each cell):
+                        <div class="smoothing-options" id="smoothing-options" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                            <select id="smoothing-type" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ddd;" data-tooltip="Smoothing type:
+
+Uniform: Adds same pseudocount α to every cell. Classic Laplace/Jeffrey's smoothing.
+
+Hierarchical: Pseudocount[i,j] = k × prior_π_i × prediction_π_j
+Structured smoothing based on marginal distributions.
+Prior belief: classifier is noninformative (independent).">
+                                <option value="uniform">Uniform</option>
+                                <option value="hierarchical">Hierarchical</option>
+                            </select>
+                            <div class="alpha-input-group" id="alpha-input-group" style="display: flex;">
+                                <label for="alpha-value">α =</label>
+                                <input type="number" id="alpha-value" min="0" max="10" step="0.1" value="0.5" data-tooltip="Alpha parameter (pseudocounts added to each cell):
 
 α = 0.5 (Jeffrey's Prior - RECOMMENDED):
 • Non-informative Bayesian prior for Dirichlet distribution
@@ -967,6 +978,29 @@ The α parameter controls the amount of smoothing applied.">
 • May cause issues with zero entries
 
 Higher α values = more smoothing = more conservative estimates">
+                            </div>
+                            <div class="hierarchical-params" id="hierarchical-params" style="display: none; gap: 8px; align-items: center;">
+                                <label for="k-value" style="font-size: 13px;">k =</label>
+                                <input type="number" id="k-value" min="0" max="100" step="0.1" value="0.5" style="width: 55px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 4px;" data-tooltip="k parameter (total pseudocount mass):
+
+k = 0.5 (RECOMMENDED):
+• Similar to Jeffrey's prior in total mass
+• Distributed according to marginals
+
+Higher k = stronger prior toward independence model">
+                                <label for="alpha-prior" style="font-size: 13px; margin-left: 8px;">α_prior =</label>
+                                <input type="number" id="alpha-prior" min="0" max="10" step="0.1" value="0.5" style="width: 55px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 4px;" data-tooltip="Smoothing for prior (row) marginal estimation:
+
+α_prior = 0.5 (RECOMMENDED):
+• Jeffrey's prior for row marginal estimation
+• Handles zero row sums gracefully">
+                                <label for="alpha-prediction" style="font-size: 13px; margin-left: 8px;">α_pred =</label>
+                                <input type="number" id="alpha-prediction" min="0" max="10" step="0.1" value="0.5" style="width: 55px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 4px;" data-tooltip="Smoothing for prediction (column) marginal estimation:
+
+α_pred = 0.5 (RECOMMENDED):
+• Jeffrey's prior for column marginal estimation
+• Handles zero column sums gracefully">
+                            </div>
                         </div>
                     </div>
                     
@@ -1151,6 +1185,19 @@ Higher α values = more smoothing = more conservative estimates">
             if (smoothingToggle) smoothingToggle.setAttribute('data-tooltip', t('tooltips.smoothingToggle'));
             const alphaInput = document.getElementById('alpha-value');
             if (alphaInput) alphaInput.setAttribute('data-tooltip', t('tooltips.alphaParam'));
+            
+            // Smoothing type selector
+            const smoothingTypeSelect = document.getElementById('smoothing-type');
+            if (smoothingTypeSelect) {
+                const options = smoothingTypeSelect.querySelectorAll('option');
+                if (options.length >= 2) {
+                    options[0].textContent = t('tooltips.smoothingTypeUniform');
+                    options[1].textContent = t('tooltips.smoothingTypeHierarchical');
+                }
+                smoothingTypeSelect.setAttribute('data-tooltip', t('tooltips.hierarchicalSmoothing'));
+            }
+            const kInput = document.getElementById('k-value');
+            if (kInput) kInput.setAttribute('data-tooltip', t('tooltips.kParam'));
 
             // View mode
             const viewModeLabels = document.querySelectorAll('.control-group label');
@@ -1599,6 +1646,41 @@ Higher α values = more smoothing = more conservative estimates">
         }
 
         /**
+         * Applies hierarchical prior-aware smoothing to matrix values
+         * Pseudocount for cell [i,j] = k × prior_π_i × prediction_π_j
+         * This represents a prior belief that the classifier is noninformative (independent)
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values, shape (n_rows, n_cols)
+         * @param {number} k - Total pseudocount mass (default 0.5)
+         * @param {number} alpha_marginal - Smoothing for marginal estimation (default 0.5)
+         * @returns {Array<Array<number>>} Smoothed matrix with structured pseudocounts
+         */
+        function applyHierarchicalSmoothing(matrix_values, k = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
+            const num_rows = matrix_values.length;
+            const num_cols = matrix_values[0].length;
+            
+            // Calculate row sums (prior/truth marginals)
+            const row_sums = matrix_values.map(row => row.reduce((sum, val) => sum + val, 0));
+            const total_sum = row_sums.reduce((sum, val) => sum + val, 0);
+            
+            // Calculate column sums (prediction marginals)
+            const col_sums = new Array(num_cols).fill(0);
+            for (let col_idx = 0; col_idx < num_cols; col_idx++) {
+                for (let row_idx = 0; row_idx < num_rows; row_idx++) {
+                    col_sums[col_idx] += matrix_values[row_idx][col_idx];
+                }
+            }
+            
+            // Estimate marginal probabilities with separate smoothing for each marginal
+            const prior_pi = row_sums.map(sum => (sum + alpha_prior) / (total_sum + num_rows * alpha_prior));
+            const prediction_pi = col_sums.map(sum => (sum + alpha_prediction) / (total_sum + num_cols * alpha_prediction));
+            
+            // Apply hierarchical pseudocounts: pseudocount[i,j] = k × prior_π_i × prediction_π_j
+            return matrix_values.map((row, row_idx) => 
+                row.map((val, col_idx) => val + k * prior_pi[row_idx] * prediction_pi[col_idx])
+            );
+        }
+
+        /**
          * Normalizes matrix by dividing all elements by the total sum
          * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
          * @returns {Array<Array<number>>} Sum-normalized matrix (joint probability distribution)
@@ -1623,11 +1705,15 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * @returns {Array<Array<number>>} Normalized matrix
          */
-        function applyNormalization(matrix_values, normalization_type, use_smoothing = false, alpha = 0.5) {
+        function applyNormalization(matrix_values, normalization_type, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
             // Apply smoothing preprocessing if enabled
             let processed_matrix = matrix_values;
             if (use_smoothing) {
-                processed_matrix = applyAdditiveSmoothing(matrix_values, alpha);
+                if (smoothing_type === 'hierarchical') {
+                    processed_matrix = applyHierarchicalSmoothing(matrix_values, k_value, alpha_prior, alpha_prediction);
+                } else {
+                    processed_matrix = applyAdditiveSmoothing(matrix_values, alpha);
+                }
             }
             
             switch (normalization_type) {
@@ -1684,9 +1770,9 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {boolean} include_info - Whether to include answer information row
          * side-effects: Modifies DOM element with id 'matrix-container'
          */
-        function renderConfusionMatrix(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
+        function renderConfusionMatrix(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
             const matrix_container = document.getElementById('matrix-container');
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha);
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
             const normalized_intensities = calculateColorIntensities(normalized_matrix);
             
             // Calculate row sums, column sums, and total sum
@@ -1928,8 +2014,8 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * @returns {string} Tab-separated text representation
          */
-        function generateTabSeparatedText(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha);
+        function generateTabSeparatedText(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
             
             // Get decomposition for Sinkhorn-Knopp
             let decomposition = null;
@@ -2035,8 +2121,8 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * @returns {string} CSV representation
          */
-        function generateCSV(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha);
+        function generateCSV(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
             
             // Get decomposition for Sinkhorn-Knopp
             let decomposition = null;
@@ -2142,9 +2228,9 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * side-effects: Modifies DOM element with id 'text-view-container'
          */
-        function renderTextView(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
+        function renderTextView(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
             const text_container = document.getElementById('text-view-container');
-            const text_content = generateTabSeparatedText(parsed_data, normalization_type, include_sums, include_info, use_smoothing, alpha);
+            const text_content = generateTabSeparatedText(parsed_data, normalization_type, include_sums, include_info, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
             
             text_container.innerHTML = `
                 <div class="text-view-content">${text_content}</div>
@@ -2162,8 +2248,8 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * side-effects: Triggers file download
          */
-        function downloadAsCSV(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5) {
-            const csv_content = generateCSV(parsed_data, normalization_type, include_sums, include_info, use_smoothing, alpha);
+        function downloadAsCSV(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
+            const csv_content = generateCSV(parsed_data, normalization_type, include_sums, include_info, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
             
             const normalization_suffix = normalization_type === 'none' ? '' : `_${normalization_type}`;
             const filename = `confusion_matrix${normalization_suffix}.csv`;
@@ -2406,11 +2492,11 @@ Higher α values = more smoothing = more conservative estimates">
          * @param {number} alpha - Smoothing parameter used
          * side-effects: Modifies DOM element with id 'stats-container'
          */
-        function displayMatrixStatistics(parsed_data, normalization_type = 'none', use_smoothing = false, alpha = 0.5) {
+        function displayMatrixStatistics(parsed_data, normalization_type = 'none', use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
             const stats_container = document.getElementById('stats-container');
             
             // Use normalized matrix for statistics
-            const display_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha);
+            const display_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
             
             // Calculate statistics
             const all_values = display_matrix.flat();
@@ -2617,11 +2703,15 @@ Higher α values = more smoothing = more conservative estimates">
                 const include_info = document.getElementById('include-info').checked;
                 const use_smoothing = document.getElementById('use-smoothing').checked;
                 const alpha = parseFloat(document.getElementById('alpha-value').value);
+                const smoothing_type = document.getElementById('smoothing-type').value;
+                const k_value = parseFloat(document.getElementById('k-value').value);
+                const alpha_prior = parseFloat(document.getElementById('alpha-prior').value);
+                const alpha_prediction = parseFloat(document.getElementById('alpha-prediction').value);
                 
                 updateMatrixTitle(selected_normalization);
-                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
-                renderTextView(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
-                displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha);
+                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
+                renderTextView(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
+                displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
                 // Ensure tooltips/info buttons applied to newly rendered elements
                 initializeTooltips();
                 
@@ -2659,11 +2749,15 @@ Higher α values = more smoothing = more conservative estimates">
                 const include_info = document.getElementById('include-info').checked;
                 const use_smoothing = document.getElementById('use-smoothing').checked;
                 const alpha = parseFloat(document.getElementById('alpha-value').value);
+                const smoothing_type = document.getElementById('smoothing-type').value;
+                const k_value = parseFloat(document.getElementById('k-value').value);
+                const alpha_prior = parseFloat(document.getElementById('alpha-prior').value);
+                const alpha_prediction = parseFloat(document.getElementById('alpha-prediction').value);
                 
                 updateMatrixTitle(selected_normalization);
-                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
-                renderTextView(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
-                displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha);
+                renderConfusionMatrix(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
+                renderTextView(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
+                displayMatrixStatistics(parsed_data, selected_normalization, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
                 // Re-apply tooltips/info buttons for updated DOM
                 initializeTooltips();
                 
@@ -2709,6 +2803,37 @@ Higher α values = more smoothing = more conservative estimates">
             updateMatrixNormalization();
         });
         
+        // Add event listener for smoothing type selector
+        document.getElementById('smoothing-type').addEventListener('change', function() {
+            const smoothing_type = this.value;
+            const alpha_group = document.getElementById('alpha-input-group');
+            const hierarchical_params = document.getElementById('hierarchical-params');
+            
+            if (smoothing_type === 'hierarchical') {
+                alpha_group.style.display = 'none';
+                hierarchical_params.style.display = 'flex';
+            } else {
+                alpha_group.style.display = 'flex';
+                hierarchical_params.style.display = 'none';
+            }
+            updateMatrixNormalization();
+        });
+        
+        // Add event listener for k value input
+        document.getElementById('k-value').addEventListener('input', function() {
+            updateMatrixNormalization();
+        });
+        
+        // Add event listener for alpha_prior input
+        document.getElementById('alpha-prior').addEventListener('input', function() {
+            updateMatrixNormalization();
+        });
+        
+        // Add event listener for alpha_prediction input
+        document.getElementById('alpha-prediction').addEventListener('input', function() {
+            updateMatrixNormalization();
+        });
+        
         // Add event listeners for normalization radio buttons
         document.addEventListener('change', function(event) {
             if (event.target.name === 'normalization') {
@@ -2721,9 +2846,9 @@ Higher α values = more smoothing = more conservative estimates">
                 updateMatrixNormalization();
             }
             if (event.target.id === 'use-smoothing') {
-                // Show/hide alpha input based on smoothing toggle
-                const alpha_group = document.getElementById('alpha-input-group');
-                alpha_group.style.display = event.target.checked ? 'flex' : 'none';
+                // Show/hide smoothing options based on smoothing toggle
+                const smoothing_options = document.getElementById('smoothing-options');
+                smoothing_options.style.display = event.target.checked ? 'flex' : 'none';
                 updateMatrixNormalization();
             }
         });
@@ -2762,8 +2887,12 @@ Higher α values = more smoothing = more conservative estimates">
                 const include_info = document.getElementById('include-info').checked;
                 const use_smoothing = document.getElementById('use-smoothing').checked;
                 const alpha = parseFloat(document.getElementById('alpha-value').value);
+                const smoothing_type = document.getElementById('smoothing-type').value;
+                const k_value = parseFloat(document.getElementById('k-value').value);
+                const alpha_prior = parseFloat(document.getElementById('alpha-prior').value);
+                const alpha_prediction = parseFloat(document.getElementById('alpha-prediction').value);
                 
-                downloadAsCSV(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha);
+                downloadAsCSV(parsed_data, selected_normalization, include_sums, include_info, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
             } catch (error) {
                 alert(`Error generating CSV: ${error.message}`);
             }

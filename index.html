@@ -573,6 +573,81 @@
             gap: 15px;
         }
 
+        .prior-frequencies-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+
+        .prior-frequencies-header {
+            cursor: pointer;
+            user-select: none;
+            font-weight: 600;
+            color: #495057;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .prior-frequencies-header:hover {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+        }
+
+        .prior-frequencies-header::before {
+            content: '▶';
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+
+        .prior-frequencies-section.expanded .prior-frequencies-header::before {
+            transform: rotate(90deg);
+        }
+
+        .prior-frequencies-content {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .prior-frequencies-section.expanded .prior-frequencies-content {
+            display: block;
+        }
+
+        #prior-frequencies-input {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        #prior-frequencies-input.error {
+            border-color: #dc3545;
+            background-color: #fff5f5;
+        }
+
+        .prior-frequencies-error {
+            color: #dc3545;
+            font-size: 13px;
+            margin-top: 5px;
+            padding: 5px 10px;
+            background-color: #fff5f5;
+            border-left: 3px solid #dc3545;
+            border-radius: 3px;
+            display: none;
+        }
+
+        .prior-frequencies-error.show {
+            display: block;
+        }
+
         .stat-box {
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             padding: 15px;
@@ -907,6 +982,21 @@ Example: Cell [Cat, Dog] = 0.05 means 5% of all classifications are 'cats predic
                             <input type="radio" name="normalization" value="sum">
                             <span>Sum normalized</span>
                         </label>
+                        <label class="radio-option" data-tooltip="Prior-normalized matrix: truth-normalized (rows) multiplied by prior frequencies.
+
+Interpretation:
+• Step 1: Row normalization creates P(Predicted | True)
+• Step 2: Each row multiplied by corresponding prior frequency P(True=i)
+• Result: P(Predicted | True) × P(True) = P(Predicted AND True) with specified priors
+• Rows sum to prior frequencies (not 1.0)
+• Columns sum to P(Predicted) under specified priors
+
+Use when: You want to see confusion matrix under specific prior class distribution assumptions, or analyze classifier performance with custom class frequencies.
+
+Bayesian interpretation: Shows joint distribution P(True, Predicted) assuming specified prior P(True).">
+                            <input type="radio" name="normalization" value="prior">
+                            <span>Prior normalized</span>
+                        </label>
                     </div>
                 </div>
                 <div id="error-message" class="error-message"></div>
@@ -1021,6 +1111,14 @@ Higher k = stronger prior toward independence model">
                 <div id="text-view-container" class="text-view-container" style="display: none;"></div>
                 <div id="decomposition-container" class="decomposition-container" style="display: none;"></div>
                 <div id="stats-container" class="stats-container" style="display: none;"></div>
+                
+                <div class="prior-frequencies-section" id="prior-frequencies-section" style="display: none;">
+                    <div class="prior-frequencies-header" id="prior-frequencies-header">Prior frequencies</div>
+                    <div class="prior-frequencies-content">
+                        <textarea id="prior-frequencies-input" placeholder='{"class1": 1, "class2": 1, "class3": 1}'></textarea>
+                        <div class="prior-frequencies-error" id="prior-frequencies-error"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1153,13 +1251,14 @@ Higher k = stronger prior toward independence model">
             const normTitle = document.querySelector('.normalization-section h3');
             if (normTitle) normTitle.textContent = t('normalizationTitle');
             const radioOptions = document.querySelectorAll('.normalization-controls .radio-option');
-            if (radioOptions.length >= 6) {
+            if (radioOptions.length >= 7) {
                 radioOptions[0].querySelector('span').textContent = t('normOriginal');
                 radioOptions[1].querySelector('span').textContent = t('normRow');
                 radioOptions[2].querySelector('span').textContent = t('normColumn');
                 radioOptions[3].querySelector('span').textContent = t('normRowColumn');
                 radioOptions[4].querySelector('span').textContent = t('normSinkhorn');
                 radioOptions[5].querySelector('span').textContent = t('normSum');
+                radioOptions[6].querySelector('span').textContent = t('normPrior');
 
                 // tooltips
                 radioOptions[0].setAttribute('data-tooltip', t('tooltips.original'));
@@ -1168,6 +1267,7 @@ Higher k = stronger prior toward independence model">
                 radioOptions[3].setAttribute('data-tooltip', t('tooltips.rowColumnNorm'));
                 radioOptions[4].setAttribute('data-tooltip', t('tooltips.sinkhornNorm'));
                 radioOptions[5].setAttribute('data-tooltip', t('tooltips.sumNorm'));
+                radioOptions[6].setAttribute('data-tooltip', t('tooltips.priorNorm'));
             }
 
             // Controls
@@ -1683,6 +1783,32 @@ Higher k = stronger prior toward independence model">
         }
 
         /**
+         * Normalizes matrix by rows (truth), then multiplies each row by corresponding prior frequency
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values, shape (n_rows, n_cols)
+         * @param {Array<number>} prior_frequencies - Prior frequencies for each row (will be normalized to sum to 1)
+         * @returns {Array<Array<number>>} Prior-normalized matrix
+         */
+        function normalizeByPrior(matrix_values, prior_frequencies) {
+            assert(Array.isArray(matrix_values), `Expected array, got ${typeof matrix_values}`);
+            assert(Array.isArray(prior_frequencies), `Expected array, got ${typeof prior_frequencies}`);
+            assert(matrix_values.length === prior_frequencies.length, 
+                   `Matrix rows (${matrix_values.length}) must match prior frequencies length (${prior_frequencies.length})`);
+            
+            // Normalize prior frequencies to sum to 1.0
+            const sum_prior = prior_frequencies.reduce((s, p) => s + p, 0);
+            assert(sum_prior > 0, 'Prior frequencies sum must be positive');
+            const normalized_priors = prior_frequencies.map(p => p / sum_prior);
+            
+            // First normalize by rows (truth normalization)
+            const row_normalized = normalizeByRows(matrix_values);
+            
+            // Then multiply each row by its prior frequency
+            return row_normalized.map((row, row_idx) => 
+                row.map(val => val * normalized_priors[row_idx])
+            );
+        }
+
+        /**
          * Applies Sinkhorn-Knopp normalization algorithm with RAS decomposition
          * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
          * @param {number} max_iterations - Maximum number of iterations (default: 100)
@@ -1844,7 +1970,7 @@ Higher k = stronger prior toward independence model">
          * @param {number} alpha - Smoothing parameter (if smoothing enabled)
          * @returns {Array<Array<number>>} Normalized matrix
          */
-        function applyNormalization(matrix_values, normalization_type, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
+        function applyNormalization(matrix_values, normalization_type, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5, row_labels = null) {
             // Apply smoothing preprocessing if enabled
             let processed_matrix = matrix_values;
             if (use_smoothing) {
@@ -1866,6 +1992,19 @@ Higher k = stronger prior toward independence model">
                     return normalizeSinkhornKnopp(processed_matrix);
                 case 'sum':
                     return normalizeBySum(processed_matrix);
+                case 'prior':
+                    if (!row_labels) {
+                        throw new Error('Row labels required for prior normalization');
+                    }
+                    const prior_input = document.getElementById('prior-frequencies-input').value;
+                    try {
+                        const prior_frequencies = parsePriorFrequencies(prior_input, row_labels);
+                        clearPriorFrequenciesError();
+                        return normalizeByPrior(processed_matrix, prior_frequencies);
+                    } catch (parse_error) {
+                        showPriorFrequenciesError(parse_error.message);
+                        throw parse_error;
+                    }
                 case 'none':
                 default:
                     return processed_matrix;
@@ -1911,7 +2050,7 @@ Higher k = stronger prior toward independence model">
          */
         function renderConfusionMatrix(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
             const matrix_container = document.getElementById('matrix-container');
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction, parsed_data.row_labels);
             const normalized_intensities = calculateColorIntensities(normalized_matrix);
             
             // Calculate row sums, column sums, and total sum
@@ -2154,7 +2293,7 @@ Higher k = stronger prior toward independence model">
          * @returns {string} Tab-separated text representation
          */
         function generateTabSeparatedText(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction, parsed_data.row_labels);
             
             // Get decomposition for Sinkhorn-Knopp
             let decomposition = null;
@@ -2261,7 +2400,7 @@ Higher k = stronger prior toward independence model">
          * @returns {string} CSV representation
          */
         function generateCSV(parsed_data, normalization_type = 'none', include_sums = true, include_info = true, use_smoothing = false, alpha = 0.5, smoothing_type = 'uniform', k_value = 0.5, alpha_prior = 0.5, alpha_prediction = 0.5) {
-            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
+            const normalized_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction, parsed_data.row_labels);
             
             // Get decomposition for Sinkhorn-Knopp
             let decomposition = null;
@@ -2635,7 +2774,7 @@ Higher k = stronger prior toward independence model">
             const stats_container = document.getElementById('stats-container');
             
             // Use normalized matrix for statistics
-            const display_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction);
+            const display_matrix = applyNormalization(parsed_data.matrix_values, normalization_type, use_smoothing, alpha, smoothing_type, k_value, alpha_prior, alpha_prediction, parsed_data.row_labels);
             
             // Calculate statistics
             const all_values = display_matrix.flat();
@@ -2667,7 +2806,8 @@ Higher k = stronger prior toward independence model">
                 'column': 'By Prediction (Columns)', 
                 'row_then_column': 'Truth → Prediction',
                 'sinkhorn_knopp': 'Sinkhorn-Knopp',
-                'sum': 'Sum Normalized'
+                'sum': 'Sum Normalized',
+                'prior': 'Prior Normalized'
             };
             
             const statistics = [
@@ -2833,6 +2973,24 @@ Higher k = stronger prior toward independence model">
                 document.getElementById('normalization-section').style.display = 'block';
                 document.getElementById('matrix-controls').style.display = 'flex';
                 
+                // Initialize prior frequencies input with default JSON (all 1s)
+                const prior_frequencies_input = document.getElementById('prior-frequencies-input');
+                const default_priors = {};
+                parsed_data.row_labels.forEach(label => {
+                    default_priors[label] = 1;
+                });
+                prior_frequencies_input.value = JSON.stringify(default_priors, null, 2);
+                clearPriorFrequenciesError();
+                
+                // Show/hide prior frequencies section based on current normalization
+                const prior_section = document.getElementById('prior-frequencies-section');
+                const selected_normalization_radio = document.querySelector('input[name="normalization"]:checked');
+                if (selected_normalization_radio && selected_normalization_radio.value === 'prior') {
+                    prior_section.style.display = 'block';
+                } else {
+                    prior_section.style.display = 'none';
+                }
+                
                 // Re-initialize tooltips for newly shown controls
                 initializeTooltips();
                 
@@ -2976,6 +3134,14 @@ Higher k = stronger prior toward independence model">
         // Add event listeners for normalization radio buttons
         document.addEventListener('change', function(event) {
             if (event.target.name === 'normalization') {
+                // Show/hide prior frequencies section based on normalization type
+                const prior_section = document.getElementById('prior-frequencies-section');
+                if (event.target.value === 'prior') {
+                    prior_section.style.display = 'block';
+                } else {
+                    prior_section.style.display = 'none';
+                    clearPriorFrequenciesError();
+                }
                 updateMatrixNormalization();
             }
             if (event.target.id === 'include-sums') {
@@ -2992,6 +3158,82 @@ Higher k = stronger prior toward independence model">
             }
         });
         
+        /**
+         * Shows validation error for prior frequencies input
+         * @param {string} error_message - Error message to display
+         */
+        function showPriorFrequenciesError(error_message) {
+            const input = document.getElementById('prior-frequencies-input');
+            const error_div = document.getElementById('prior-frequencies-error');
+            input.classList.add('error');
+            error_div.textContent = error_message;
+            error_div.classList.add('show');
+        }
+
+        /**
+         * Clears validation error for prior frequencies input
+         */
+        function clearPriorFrequenciesError() {
+            const input = document.getElementById('prior-frequencies-input');
+            const error_div = document.getElementById('prior-frequencies-error');
+            input.classList.remove('error');
+            error_div.classList.remove('show');
+            error_div.textContent = '';
+        }
+
+        // Prior frequencies spoiler toggle
+        document.getElementById('prior-frequencies-header').addEventListener('click', function() {
+            const section = document.getElementById('prior-frequencies-section');
+            section.classList.toggle('expanded');
+        });
+
+        // Prior frequencies input change listener
+        document.getElementById('prior-frequencies-input').addEventListener('input', function() {
+            const selected_normalization = document.querySelector('input[name="normalization"]:checked');
+            if (selected_normalization && selected_normalization.value === 'prior') {
+                // Clear any previous errors
+                clearPriorFrequenciesError();
+                updateMatrixNormalization();
+            }
+        });
+
+        /**
+         * Parses and normalizes prior frequencies from JSON input
+         * @param {string} json_input - JSON string mapping class names to frequencies
+         * @param {Array<string>} class_names - Array of class names (row labels)
+         * @returns {Array<number>} Normalized prior frequencies (sums to 1.0)
+         */
+        function parsePriorFrequencies(json_input, class_names) {
+            if (!json_input || !json_input.trim()) {
+                // Default: all frequencies are 1
+                return new Array(class_names.length).fill(1.0 / class_names.length);
+            }
+            
+            try {
+                const priors_obj = JSON.parse(json_input);
+                const priors = class_names.map(class_name => {
+                    const freq = priors_obj[class_name];
+                    if (freq === undefined || freq === null) {
+                        return 1.0; // Default to 1 if not specified
+                    }
+                    const num_freq = typeof freq === 'number' ? freq : parseFloat(freq);
+                    if (isNaN(num_freq) || num_freq < 0) {
+                        throw new Error(`Invalid prior frequency for class "${class_name}": ${freq}`);
+                    }
+                    return num_freq;
+                });
+                
+                // Normalize to sum to 1.0
+                const sum = priors.reduce((s, p) => s + p, 0);
+                if (sum === 0) {
+                    throw new Error('All prior frequencies are zero');
+                }
+                return priors.map(p => p / sum);
+            } catch (error) {
+                throw new Error(`Failed to parse prior frequencies: ${error.message}`);
+            }
+        }
+
         // Add event listeners for view mode buttons
         document.getElementById('table-view-btn').addEventListener('click', function() {
             document.getElementById('matrix-container').style.display = 'block';

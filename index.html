@@ -957,9 +957,9 @@ Prior belief: classifier is noninformative (independent).">
                                 <option value="uniform">Uniform</option>
                                 <option value="hierarchical">Hierarchical</option>
                             </select>
-                            <div class="alpha-input-group" id="alpha-input-group" style="display: flex;">
-                                <label for="alpha-value">α =</label>
-                                <input type="number" id="alpha-value" min="0" max="10" step="0.1" value="0.5" data-tooltip="Alpha parameter (pseudocounts added to each cell):
+                        <div class="alpha-input-group" id="alpha-input-group" style="display: flex;">
+                            <label for="alpha-value">α =</label>
+                            <input type="number" id="alpha-value" min="0" max="10" step="0.1" value="0.5" data-tooltip="Alpha parameter (pseudocounts added to each cell):
 
 α = 0.5 (Jeffrey's Prior - RECOMMENDED):
 • Non-informative Bayesian prior for Dirichlet distribution
@@ -1312,15 +1312,128 @@ Higher k = stronger prior toward independence model">
         }
 
         /**
-         * Parses table data with tab or space separators into a structured format
-         * @param {string} table_data - Raw table data (tab or space separated)
+         * Parses CSV data into a structured format
+         * Throws an error if the data is not valid CSV
+         * @param {string} table_data - Raw CSV data (comma separated)
          * @returns {Object} Parsed data with headers and matrix values
+         * @throws {Error} If data is not valid CSV format
          */
-        function parseTableData(table_data) {
+        function parseCSV(table_data) {
             const lines = table_data.trim().split('\n').filter(line => line.trim());
             
             if (lines.length < 2) {
-                throw new Error('Table must have at least a header row and one data row');
+                throw new Error('CSV must have at least a header row and one data row');
+            }
+            
+            /**
+             * Parses a CSV line handling quoted fields
+             * @param {string} line - CSV line to parse
+             * @returns {Array<string>} Array of cell values
+             */
+            function parseCSVLine(line) {
+                const cells = [];
+                let current_cell = '';
+                let inside_quotes = false;
+                
+                for (let idx = 0; idx < line.length; idx++) {
+                    const char = line[idx];
+                    
+                    if (char === '"') {
+                        if (inside_quotes && idx + 1 < line.length && line[idx + 1] === '"') {
+                            // Escaped quote
+                            current_cell += '"';
+                            idx++; // Skip next quote
+                        } else {
+                            // Toggle quote state
+                            inside_quotes = !inside_quotes;
+                        }
+                    } else if (char === ',' && !inside_quotes) {
+                        // End of cell
+                        cells.push(current_cell.trim());
+                        current_cell = '';
+                    } else {
+                        current_cell += char;
+                    }
+                }
+                
+                // Add last cell
+                cells.push(current_cell.trim());
+                
+                return cells;
+            }
+            
+            // Parse header row
+            const header_row = parseCSVLine(lines[0]);
+            
+            // Validate CSV format: should have commas
+            if (header_row.length < 2 && !lines[0].includes(',')) {
+                throw new Error('Not valid CSV: no comma separators found');
+            }
+            
+            // Column labels: skip first empty cell if present
+            const column_labels = header_row[0] === '' ? header_row.slice(1) : header_row;
+            
+            // Parse data rows
+            const data_rows = [];
+            const row_labels = [];
+            
+            for (let row_index = 1; row_index < lines.length; row_index++) {
+                const cells = parseCSVLine(lines[row_index]);
+                
+                // Expected length: header_row.length (which includes first cell, possibly empty)
+                if (cells.length !== header_row.length) {
+                    throw new Error(`CSV row ${row_index + 1} has ${cells.length} columns, expected ${header_row.length}`);
+                }
+                
+                // First cell is row label
+                let row_label = cells[0];
+                if (row_label.startsWith('"') && row_label.endsWith('"')) {
+                    row_label = row_label.slice(1, -1);
+                }
+                row_labels.push(row_label || `Row ${row_index}`);
+                
+                // Parse numeric values (skip first cell which is row label)
+                const numeric_values = [];
+                for (let col_index = 1; col_index < cells.length; col_index++) {
+                    // Remove quotes if present
+                    let cell_value = cells[col_index];
+                    if (cell_value.startsWith('"') && cell_value.endsWith('"')) {
+                        cell_value = cell_value.slice(1, -1);
+                    }
+                    
+                    // Handle comma decimal separator (but preserve comma as separator)
+                    const normalized_value = cell_value.replace(',', '.');
+                    const parsed_value = parseFloat(normalized_value);
+                    
+                    if (isNaN(parsed_value)) {
+                        throw new Error(`CSV: Invalid numeric value "${cells[col_index]}" at row ${row_index + 1}, column ${col_index + 1}`);
+                    }
+                    
+                    numeric_values.push(parsed_value);
+                }
+                
+                data_rows.push(numeric_values);
+            }
+            
+            return {
+                column_labels: column_labels,
+                row_labels: row_labels,
+                matrix_values: data_rows
+            };
+        }
+
+        /**
+         * Parses TSV (tab or space separated) data into a structured format
+         * Throws an error if the data is not valid TSV
+         * @param {string} table_data - Raw TSV data (tab or space separated)
+         * @returns {Object} Parsed data with headers and matrix values
+         * @throws {Error} If data is not valid TSV format
+         */
+        function parseTSV(table_data) {
+            const lines = table_data.trim().split('\n').filter(line => line.trim());
+            
+            if (lines.length < 2) {
+                throw new Error('TSV must have at least a header row and one data row');
             }
             
             // Smart separator detection: check each line individually
@@ -1339,7 +1452,11 @@ Higher k = stronger prior toward independence model">
             
             // Parse header row
             const header_row = splitLine(lines[0]);
-            const column_labels = header_row;
+            
+            // Validate TSV format: should have tabs or multiple spaces, not commas
+            if (lines[0].includes(',') && !lines[0].includes('\t') && !/\s{2,}/.test(lines[0])) {
+                throw new Error('Not valid TSV: appears to be CSV format');
+            }
             
             // Parse data rows
             const data_rows = [];
@@ -1349,7 +1466,7 @@ Higher k = stronger prior toward independence model">
                 const cells = splitLine(lines[row_index]);
                 
                 if (cells.length !== header_row.length) {
-                    throw new Error(`Row ${row_index + 1} has ${cells.length} columns, expected ${header_row.length}`);
+                    throw new Error(`TSV row ${row_index + 1} has ${cells.length} columns, expected ${header_row.length}`);
                 }
                 
                 const numeric_values = [];
@@ -1359,21 +1476,43 @@ Higher k = stronger prior toward independence model">
                     const parsed_value = parseFloat(normalized_value);
                     
                     if (isNaN(parsed_value)) {
-                        throw new Error(`Invalid numeric value "${cells[col_index]}" at row ${row_index + 1}, column ${col_index + 1}`);
+                        throw new Error(`TSV: Invalid numeric value "${cells[col_index]}" at row ${row_index + 1}, column ${col_index + 1}`);
                     }
                     
                     numeric_values.push(parsed_value);
                 }
                 
                 data_rows.push(numeric_values);
-                row_labels.push(column_labels[row_index - 1] || `Row ${row_index}`);
+                row_labels.push(header_row[row_index - 1] || `Row ${row_index}`);
             }
             
             return {
-                column_labels: column_labels,
+                column_labels: header_row,
                 row_labels: row_labels,
                 matrix_values: data_rows
             };
+        }
+
+        /**
+         * Parses table data, automatically detecting CSV or TSV format
+         * Tries CSV first, then TSV if CSV fails
+         * @param {string} table_data - Raw table data (CSV or TSV)
+         * @returns {Object} Parsed data with headers and matrix values
+         * @throws {Error} If data cannot be parsed as either CSV or TSV
+         */
+        function parseTableData(table_data) {
+            // Try CSV first
+            try {
+                return parseCSV(table_data);
+            } catch (csv_error) {
+                // If CSV fails, try TSV
+                try {
+                    return parseTSV(table_data);
+                } catch (tsv_error) {
+                    // Both failed, throw a combined error message
+                    throw new Error(`Failed to parse as CSV: ${csv_error.message}. Failed to parse as TSV: ${tsv_error.message}`);
+                }
+            }
         }
 
         /**
@@ -1712,7 +1851,7 @@ Higher k = stronger prior toward independence model">
                 if (smoothing_type === 'hierarchical') {
                     processed_matrix = applyHierarchicalSmoothing(matrix_values, k_value, alpha_prior, alpha_prediction);
                 } else {
-                    processed_matrix = applyAdditiveSmoothing(matrix_values, alpha);
+                processed_matrix = applyAdditiveSmoothing(matrix_values, alpha);
                 }
             }
             

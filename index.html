@@ -997,6 +997,22 @@ Bayesian interpretation: Shows joint distribution P(True, Predicted) assuming sp
                             <input type="radio" name="normalization" value="prior">
                             <span>Prior normalized</span>
                         </label>
+                        <label class="radio-option" data-tooltip="Prior then prediction normalized: truth-normalized (rows) multiplied by prior frequencies, then column-normalized.
+
+Interpretation:
+• Step 1: Row normalization creates P(Predicted | True)
+• Step 2: Each row multiplied by corresponding prior frequency P(True=i)
+• Step 3: Column normalization creates posterior probabilities P(True | Predicted) under specified prior
+• Columns sum to 1.0 (posterior probability distributions)
+• Rows do not sum to 1.0 (balanced by specified prior assumption)
+• Represents Bayesian inference with custom class priors
+
+Use when: You want posterior probabilities assuming specified class distribution, remove original class frequency bias, or analyze classifier output under custom prior assumptions.
+
+Bayesian interpretation: Converts classifier outputs to posterior probabilities assuming P(True class) matches specified priors.">
+                            <input type="radio" name="normalization" value="prior_then_column">
+                            <span>Prior then prediction normalized</span>
+                        </label>
                     </div>
                 </div>
                 <div id="error-message" class="error-message"></div>
@@ -1251,7 +1267,7 @@ Higher k = stronger prior toward independence model">
             const normTitle = document.querySelector('.normalization-section h3');
             if (normTitle) normTitle.textContent = t('normalizationTitle');
             const radioOptions = document.querySelectorAll('.normalization-controls .radio-option');
-            if (radioOptions.length >= 7) {
+            if (radioOptions.length >= 8) {
                 radioOptions[0].querySelector('span').textContent = t('normOriginal');
                 radioOptions[1].querySelector('span').textContent = t('normRow');
                 radioOptions[2].querySelector('span').textContent = t('normColumn');
@@ -1259,6 +1275,7 @@ Higher k = stronger prior toward independence model">
                 radioOptions[4].querySelector('span').textContent = t('normSinkhorn');
                 radioOptions[5].querySelector('span').textContent = t('normSum');
                 radioOptions[6].querySelector('span').textContent = t('normPrior');
+                radioOptions[7].querySelector('span').textContent = t('normPriorThenColumn');
 
                 // tooltips
                 radioOptions[0].setAttribute('data-tooltip', t('tooltips.original'));
@@ -1268,6 +1285,7 @@ Higher k = stronger prior toward independence model">
                 radioOptions[4].setAttribute('data-tooltip', t('tooltips.sinkhornNorm'));
                 radioOptions[5].setAttribute('data-tooltip', t('tooltips.sumNorm'));
                 radioOptions[6].setAttribute('data-tooltip', t('tooltips.priorNorm'));
+                radioOptions[7].setAttribute('data-tooltip', t('tooltips.priorThenColumnNorm'));
             }
 
             // Controls
@@ -1809,6 +1827,35 @@ Higher k = stronger prior toward independence model">
         }
 
         /**
+         * Normalizes matrix by rows (truth), multiplies by prior frequencies, then normalizes by columns (prediction)
+         * @param {Array<Array<number>>} matrix_values - 2D array of matrix values, shape (n_rows, n_cols)
+         * @param {Array<number>} prior_frequencies - Prior frequencies for each row (will be normalized to sum to 1)
+         * @returns {Array<Array<number>>} Prior-then-column normalized matrix
+         */
+        function normalizePriorThenColumn(matrix_values, prior_frequencies) {
+            assert(Array.isArray(matrix_values), `Expected array, got ${typeof matrix_values}`);
+            assert(Array.isArray(prior_frequencies), `Expected array, got ${typeof prior_frequencies}`);
+            assert(matrix_values.length === prior_frequencies.length, 
+                   `Matrix rows (${matrix_values.length}) must match prior frequencies length (${prior_frequencies.length})`);
+            
+            // Normalize prior frequencies to sum to 1.0
+            const sum_prior = prior_frequencies.reduce((s, p) => s + p, 0);
+            assert(sum_prior > 0, 'Prior frequencies sum must be positive');
+            const normalized_priors = prior_frequencies.map(p => p / sum_prior);
+            
+            // First normalize by rows (truth normalization)
+            const row_normalized = normalizeByRows(matrix_values);
+            
+            // Multiply each row by its prior frequency
+            const prior_normalized = row_normalized.map((row, row_idx) => 
+                row.map(val => val * normalized_priors[row_idx])
+            );
+            
+            // Then normalize by columns (prediction normalization)
+            return normalizeByColumns(prior_normalized);
+        }
+
+        /**
          * Applies Sinkhorn-Knopp normalization algorithm with RAS decomposition
          * @param {Array<Array<number>>} matrix_values - 2D array of matrix values
          * @param {number} max_iterations - Maximum number of iterations (default: 100)
@@ -2001,6 +2048,19 @@ Higher k = stronger prior toward independence model">
                         const prior_frequencies = parsePriorFrequencies(prior_input, row_labels);
                         clearPriorFrequenciesError();
                         return normalizeByPrior(processed_matrix, prior_frequencies);
+                    } catch (parse_error) {
+                        showPriorFrequenciesError(parse_error.message);
+                        throw parse_error;
+                    }
+                case 'prior_then_column':
+                    if (!row_labels) {
+                        throw new Error('Row labels required for prior normalization');
+                    }
+                    const prior_input_then = document.getElementById('prior-frequencies-input').value;
+                    try {
+                        const prior_frequencies_then = parsePriorFrequencies(prior_input_then, row_labels);
+                        clearPriorFrequenciesError();
+                        return normalizePriorThenColumn(processed_matrix, prior_frequencies_then);
                     } catch (parse_error) {
                         showPriorFrequenciesError(parse_error.message);
                         throw parse_error;
@@ -2807,7 +2867,8 @@ Higher k = stronger prior toward independence model">
                 'row_then_column': 'Truth → Prediction',
                 'sinkhorn_knopp': 'Sinkhorn-Knopp',
                 'sum': 'Sum Normalized',
-                'prior': 'Prior Normalized'
+                'prior': 'Prior Normalized',
+                'prior_then_column': 'Prior → Prediction'
             };
             
             const statistics = [
@@ -2982,14 +3043,9 @@ Higher k = stronger prior toward independence model">
                 prior_frequencies_input.value = JSON.stringify(default_priors, null, 2);
                 clearPriorFrequenciesError();
                 
-                // Show/hide prior frequencies section based on current normalization
+                // Show prior frequencies section (always visible)
                 const prior_section = document.getElementById('prior-frequencies-section');
-                const selected_normalization_radio = document.querySelector('input[name="normalization"]:checked');
-                if (selected_normalization_radio && selected_normalization_radio.value === 'prior') {
-                    prior_section.style.display = 'block';
-                } else {
-                    prior_section.style.display = 'none';
-                }
+                prior_section.style.display = 'block';
                 
                 // Re-initialize tooltips for newly shown controls
                 initializeTooltips();
@@ -3134,12 +3190,8 @@ Higher k = stronger prior toward independence model">
         // Add event listeners for normalization radio buttons
         document.addEventListener('change', function(event) {
             if (event.target.name === 'normalization') {
-                // Show/hide prior frequencies section based on normalization type
-                const prior_section = document.getElementById('prior-frequencies-section');
-                if (event.target.value === 'prior') {
-                    prior_section.style.display = 'block';
-                } else {
-                    prior_section.style.display = 'none';
+                // Clear prior frequencies error when switching normalization (but keep section visible)
+                if (event.target.value !== 'prior' && event.target.value !== 'prior_then_column') {
                     clearPriorFrequenciesError();
                 }
                 updateMatrixNormalization();
@@ -3190,7 +3242,7 @@ Higher k = stronger prior toward independence model">
         // Prior frequencies input change listener
         document.getElementById('prior-frequencies-input').addEventListener('input', function() {
             const selected_normalization = document.querySelector('input[name="normalization"]:checked');
-            if (selected_normalization && selected_normalization.value === 'prior') {
+            if (selected_normalization && (selected_normalization.value === 'prior' || selected_normalization.value === 'prior_then_column')) {
                 // Clear any previous errors
                 clearPriorFrequenciesError();
                 updateMatrixNormalization();

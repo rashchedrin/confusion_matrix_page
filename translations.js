@@ -10,6 +10,7 @@ window.LANGUAGES = {
       templateLabel: 'Template:',
       templateTitleLabel: 'Title:',
       saveTemplateButton: 'Save in local storage',
+      deleteTemplateButton: 'Delete',
       templates: {
         multiclass: 'Multi-class classifier',
         allPositive: 'All positive (noninformative)',
@@ -113,6 +114,7 @@ window.LANGUAGES = {
       templateLabel: 'Шаблон:',
       templateTitleLabel: 'Название:',
       saveTemplateButton: 'Сохранить в локальное хранилище',
+      deleteTemplateButton: 'Удалить',
       templates: {
         multiclass: 'Многоклассовый классификатор',
         allPositive: 'Все положительные (неинформативный)',

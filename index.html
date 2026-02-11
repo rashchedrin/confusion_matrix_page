@@ -166,6 +166,26 @@
             background: #4457c2;
         }
 
+        #delete-template-btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #e53e3e;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            display: none;
+        }
+
+        #delete-template-btn:hover {
+            background: #c53030;
+        }
+
+        #delete-template-btn:active {
+            background: #9b2c2c;
+        }
+
         #table-input {
             width: 100%;
             height: 150px;
@@ -931,6 +951,7 @@
                     <label for="template-title-input">Title:</label>
                     <input type="text" id="template-title-input" placeholder="Enter template name">
                     <button id="save-template-btn">Save in local storage</button>
+                    <button id="delete-template-btn">Delete</button>
                 </div>
                 <textarea id="table-input" placeholder=""></textarea>
                 <div class="button-container">
@@ -1280,6 +1301,8 @@ Higher k = stronger prior toward independence model">
             if (templateTitleLabel) templateTitleLabel.textContent = t('templateTitleLabel');
             const saveTemplateBtn = document.getElementById('save-template-btn');
             if (saveTemplateBtn) saveTemplateBtn.textContent = t('saveTemplateButton');
+            const deleteTemplateBtn = document.getElementById('delete-template-btn');
+            if (deleteTemplateBtn) deleteTemplateBtn.textContent = t('deleteTemplateButton');
             
             const textarea = document.getElementById('table-input');
             if (textarea) {
@@ -3256,6 +3279,48 @@ Higher k = stronger prior toward independence model">
         }
 
         /**
+         * Checks if a template exists in localStorage
+         * @param {string} template_name - Name of the template
+         * @returns {boolean} True if template exists, false otherwise
+         */
+        function templateExistsInLocalStorage(template_name) {
+            if (!template_name || !template_name.trim()) {
+                return false;
+            }
+            const storage_key = 'confusion_matrix_template_' + template_name.trim();
+            return localStorage.getItem(storage_key) !== null;
+        }
+
+        /**
+         * Deletes a template from localStorage
+         * @param {string} template_name - Name of the template to delete
+         * side-effects: Removes template from localStorage
+         */
+        function deleteTemplateFromLocalStorage(template_name) {
+            assert(typeof template_name === 'string' && template_name.trim().length > 0, 
+                   `Template name must be non-empty string, got: ${template_name}`);
+            
+            const storage_key = 'confusion_matrix_template_' + template_name.trim();
+            localStorage.removeItem(storage_key);
+        }
+
+        /**
+         * Updates the visibility of the delete button based on whether the title matches an existing template
+         * side-effects: Shows/hides delete button
+         */
+        function updateDeleteButtonVisibility() {
+            const title_input = document.getElementById('template-title-input');
+            const delete_btn = document.getElementById('delete-template-btn');
+            const template_name = title_input.value.trim();
+            
+            if (template_name && templateExistsInLocalStorage(template_name)) {
+                delete_btn.style.display = 'block';
+            } else {
+                delete_btn.style.display = 'none';
+            }
+        }
+
+        /**
          * Populates template selector with saved templates
          * side-effects: Modifies template selector DOM
          */
@@ -3303,6 +3368,7 @@ Higher k = stronger prior toward independence model">
                         document.getElementById('prior-frequencies-input').value = '';
                     }
                     clearPriorFrequenciesError();
+                    updateDeleteButtonVisibility();
                     processTableInput();
                 } else {
                     alert('Template not found in local storage');
@@ -3324,6 +3390,7 @@ Higher k = stronger prior toward independence model">
             // Clear prior frequencies for built-in templates (will be initialized with defaults when data is parsed)
             document.getElementById('prior-frequencies-input').value = '';
             clearPriorFrequenciesError();
+            updateDeleteButtonVisibility();
             processTableInput();
         });
 
@@ -3376,6 +3443,52 @@ Higher k = stronger prior toward independence model">
                 alert(`Template "${template_name}" saved successfully!`);
             } catch (error) {
                 alert(`Error saving template: ${error.message}`);
+            }
+            
+            // Update delete button visibility after saving
+            updateDeleteButtonVisibility();
+        });
+
+        // Title input event listener to show/hide delete button
+        document.getElementById('template-title-input').addEventListener('input', updateDeleteButtonVisibility);
+        document.getElementById('template-title-input').addEventListener('change', updateDeleteButtonVisibility);
+
+        // Delete template button event listener
+        document.getElementById('delete-template-btn').addEventListener('click', function() {
+            const title_input = document.getElementById('template-title-input');
+            const template_name = title_input.value.trim();
+            
+            if (!template_name) {
+                alert('Please enter a template title');
+                title_input.focus();
+                return;
+            }
+            
+            if (!templateExistsInLocalStorage(template_name)) {
+                alert(`Template "${template_name}" not found in local storage`);
+                updateDeleteButtonVisibility();
+                return;
+            }
+            
+            // Confirm deletion
+            if (!confirm(`Are you sure you want to delete template "${template_name}"?`)) {
+                return;
+            }
+            
+            try {
+                // Delete from localStorage
+                deleteTemplateFromLocalStorage(template_name);
+                
+                // Update template selector
+                populateTemplateSelector();
+                
+                // Clear title input and hide delete button
+                title_input.value = '';
+                updateDeleteButtonVisibility();
+                
+                alert(`Template "${template_name}" deleted successfully!`);
+            } catch (error) {
+                alert(`Error deleting template: ${error.message}`);
             }
         });
         

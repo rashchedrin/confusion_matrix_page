@@ -3090,13 +3090,15 @@ Higher k = stronger prior toward independence model">
                 document.getElementById('normalization-section').style.display = 'block';
                 document.getElementById('matrix-controls').style.display = 'flex';
                 
-                // Initialize prior frequencies input with default JSON (all 1s)
+                // Initialize prior frequencies input with default JSON (all 1s) only if empty
                 const prior_frequencies_input = document.getElementById('prior-frequencies-input');
-                const default_priors = {};
-                parsed_data.row_labels.forEach(label => {
-                    default_priors[label] = 1;
-                });
-                prior_frequencies_input.value = JSON.stringify(default_priors, null, 2);
+                if (!prior_frequencies_input.value.trim()) {
+                    const default_priors = {};
+                    parsed_data.row_labels.forEach(label => {
+                        default_priors[label] = 1;
+                    });
+                    prior_frequencies_input.value = JSON.stringify(default_priors, null, 2);
+                }
                 clearPriorFrequenciesError();
                 
                 // Show prior frequencies section (always visible)
@@ -3200,32 +3202,57 @@ Higher k = stronger prior toward independence model">
         }
 
         /**
-         * Saves template data to localStorage
+         * Saves template data and prior frequencies to localStorage
          * @param {string} template_name - Name of the template
          * @param {string} template_data - Matrix data to save
+         * @param {string} prior_frequencies - Prior frequencies JSON string
          * side-effects: Stores data in localStorage
          */
-        function saveTemplateToLocalStorage(template_name, template_data) {
+        function saveTemplateToLocalStorage(template_name, template_data, prior_frequencies) {
             assert(typeof template_name === 'string' && template_name.trim().length > 0, 
                    `Template name must be non-empty string, got: ${template_name}`);
             assert(typeof template_data === 'string', 
                    `Template data must be string, got: ${typeof template_data}`);
             
             const storage_key = 'confusion_matrix_template_' + template_name.trim();
-            localStorage.setItem(storage_key, template_data);
+            const template_object = {
+                matrix_data: template_data,
+                prior_frequencies: prior_frequencies || ''
+            };
+            localStorage.setItem(storage_key, JSON.stringify(template_object));
         }
 
         /**
-         * Loads template data from localStorage
+         * Loads template data and prior frequencies from localStorage
          * @param {string} template_name - Name of the template
-         * @returns {string|null} Template data or null if not found
+         * @returns {Object|null} Object with matrix_data and prior_frequencies, or null if not found
          */
         function loadTemplateFromLocalStorage(template_name) {
             assert(typeof template_name === 'string' && template_name.trim().length > 0, 
                    `Template name must be non-empty string, got: ${template_name}`);
             
             const storage_key = 'confusion_matrix_template_' + template_name.trim();
-            return localStorage.getItem(storage_key);
+            const stored_data = localStorage.getItem(storage_key);
+            
+            if (!stored_data) {
+                return null;
+            }
+            
+            // Try to parse as JSON (new format with prior frequencies)
+            try {
+                const template_object = JSON.parse(stored_data);
+                if (template_object.matrix_data) {
+                    return template_object;
+                }
+            } catch (e) {
+                // Fallback: old format (just string data)
+                return {
+                    matrix_data: stored_data,
+                    prior_frequencies: ''
+                };
+            }
+            
+            return null;
         }
 
         /**
@@ -3264,10 +3291,18 @@ Higher k = stronger prior toward independence model">
             // Handle saved templates
             if (template_key.startsWith('saved_')) {
                 const template_name = template_key.replace('saved_', '');
-                const template_data = loadTemplateFromLocalStorage(template_name);
-                if (template_data) {
-                    document.getElementById('table-input').value = template_data;
+                const template_object = loadTemplateFromLocalStorage(template_name);
+                if (template_object) {
+                    document.getElementById('table-input').value = template_object.matrix_data;
                     document.getElementById('template-title-input').value = template_name;
+                    // Restore prior frequencies if saved
+                    if (template_object.prior_frequencies) {
+                        document.getElementById('prior-frequencies-input').value = template_object.prior_frequencies;
+                    } else {
+                        // Clear prior frequencies if not saved
+                        document.getElementById('prior-frequencies-input').value = '';
+                    }
+                    clearPriorFrequenciesError();
                     processTableInput();
                 } else {
                     alert('Template not found in local storage');
@@ -3286,6 +3321,9 @@ Higher k = stronger prior toward independence model">
             const template_data = t('templateData.' + translation_key) || t('exampleData');
             document.getElementById('table-input').value = template_data;
             document.getElementById('template-title-input').value = '';
+            // Clear prior frequencies for built-in templates (will be initialized with defaults when data is parsed)
+            document.getElementById('prior-frequencies-input').value = '';
+            clearPriorFrequenciesError();
             processTableInput();
         });
 
@@ -3293,8 +3331,10 @@ Higher k = stronger prior toward independence model">
         document.getElementById('save-template-btn').addEventListener('click', function() {
             const title_input = document.getElementById('template-title-input');
             const table_input = document.getElementById('table-input');
+            const prior_frequencies_input = document.getElementById('prior-frequencies-input');
             const template_name = title_input.value.trim();
             const template_data = table_input.value.trim();
+            const prior_frequencies = prior_frequencies_input.value.trim();
             
             if (!template_name) {
                 alert('Please enter a template title');
@@ -3312,8 +3352,19 @@ Higher k = stronger prior toward independence model">
                 // Validate that the data can be parsed
                 parseTableData(template_data);
                 
-                // Save to localStorage
-                saveTemplateToLocalStorage(template_name, template_data);
+                // Validate prior frequencies if provided
+                if (prior_frequencies) {
+                    try {
+                        JSON.parse(prior_frequencies);
+                    } catch (e) {
+                        alert(`Invalid prior frequencies JSON: ${e.message}`);
+                        prior_frequencies_input.focus();
+                        return;
+                    }
+                }
+                
+                // Save to localStorage (including prior frequencies)
+                saveTemplateToLocalStorage(template_name, template_data, prior_frequencies);
                 
                 // Update template selector
                 populateTemplateSelector();

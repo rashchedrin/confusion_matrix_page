@@ -3243,15 +3243,30 @@ Higher k = stronger prior toward independence model">
                 document.getElementById('normalization-section').style.display = 'block';
                 document.getElementById('matrix-controls').style.display = 'flex';
                 
-                // Initialize prior frequencies input with default JSON (all 1s) only if empty
+                // Update prior frequencies input to match new labels
                 const prior_frequencies_input = document.getElementById('prior-frequencies-input');
-                if (!prior_frequencies_input.value.trim()) {
-                    const default_priors = {};
-                    parsed_data.row_labels.forEach(label => {
-                        default_priors[label] = 1;
-                    });
-                    prior_frequencies_input.value = JSON.stringify(default_priors, null, 2);
+                const existing_priors_text = prior_frequencies_input.value.trim();
+                let existing_priors = {};
+                
+                // Try to parse existing prior frequencies
+                if (existing_priors_text) {
+                    try {
+                        existing_priors = JSON.parse(existing_priors_text);
+                    } catch (e) {
+                        // If parsing fails, start with empty object
+                        existing_priors = {};
+                    }
                 }
+                
+                // Create updated priors object with new labels
+                const updated_priors = {};
+                parsed_data.row_labels.forEach(label => {
+                    // Preserve existing value if label exists, otherwise use default of 1
+                    updated_priors[label] = existing_priors.hasOwnProperty(label) ? existing_priors[label] : 1;
+                });
+                
+                // Update the input field
+                prior_frequencies_input.value = JSON.stringify(updated_priors, null, 2);
                 clearPriorFrequenciesError();
                 
                 // Show prior frequencies section (always visible)
@@ -3507,6 +3522,12 @@ Higher k = stronger prior toward independence model">
             const view_mode = table_view_btn && table_view_btn.classList.contains('active') ? 'table' : 'text';
             params.set('view', view_mode);
             
+            // Title (URL encoded)
+            const title = document.getElementById('template-title-input').value.trim();
+            if (title) {
+                params.set('title', encodeURIComponent(title));
+            }
+            
             // Build URL
             const base_url = window.location.origin + window.location.pathname;
             return base_url + '?' + params.toString();
@@ -3537,6 +3558,14 @@ Higher k = stronger prior toward independence model">
                     const encoded_priors = params.get('priors');
                     const prior_frequencies = decodeURIComponent(escape(atob(encoded_priors)));
                     document.getElementById('prior-frequencies-input').value = prior_frequencies;
+                }
+                
+                // Restore title
+                if (params.has('title')) {
+                    const title = decodeURIComponent(params.get('title'));
+                    document.getElementById('template-title-input').value = title;
+                    // Update delete button visibility based on restored title
+                    updateDeleteButtonVisibility();
                 }
                 
                 // Restore normalization (before smoothing, as smoothing change events might trigger updates)

@@ -477,6 +477,109 @@
             box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
         }
 
+        .share-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 10px;
+        }
+
+        .share-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .modal-close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            right: 15px;
+            top: 10px;
+        }
+
+        .modal-close:hover,
+        .modal-close:focus {
+            color: #000;
+        }
+
+        .share-link-input-group {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        #share-link-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .share-link-copied {
+            color: #28a745;
+            font-size: 14px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
         .text-view-container {
             margin-bottom: 20px;
         }
@@ -1191,6 +1294,21 @@ Higher k = stronger prior toward independence model">
                     
                     <div class="control-group">
                         <button id="download-csv-btn" class="download-btn">Download as CSV</button>
+                        <button id="share-link-btn" class="share-btn">Share link</button>
+                    </div>
+                </div>
+                
+                <!-- Share Link Modal -->
+                <div id="share-link-modal" class="modal" style="display: none;">
+                    <div class="modal-content">
+                        <span class="modal-close">&times;</span>
+                        <h3 id="share-link-modal-title">Shareable Link</h3>
+                        <p id="share-link-modal-description">Copy this link to share your confusion matrix with all settings:</p>
+                        <div class="share-link-input-group">
+                            <input type="text" id="share-link-input" readonly>
+                            <button id="copy-link-btn" class="copy-btn">Copy</button>
+                        </div>
+                        <p id="share-link-copied" class="share-link-copied" style="display: none;">Link copied to clipboard!</p>
                     </div>
                 </div>
                 
@@ -1411,6 +1529,18 @@ Higher k = stronger prior toward independence model">
             }
             const downloadBtn = document.getElementById('download-csv-btn');
             if (downloadBtn) downloadBtn.textContent = t('downloadCSV');
+            const shareBtn = document.getElementById('share-link-btn');
+            if (shareBtn) shareBtn.textContent = t('shareLink');
+            
+            // Update share link modal translations
+            const shareModalTitle = document.getElementById('share-link-modal-title');
+            if (shareModalTitle) shareModalTitle.textContent = t('shareLinkModalTitle');
+            const shareModalDescription = document.getElementById('share-link-modal-description');
+            if (shareModalDescription) shareModalDescription.textContent = t('shareLinkModalDescription');
+            const copyBtn = document.getElementById('copy-link-btn');
+            if (copyBtn) copyBtn.textContent = t('copyLink');
+            const linkCopiedMsg = document.getElementById('share-link-copied');
+            if (linkCopiedMsg) linkCopiedMsg.textContent = t('linkCopied');
 
             initializeTooltips();
         }
@@ -3321,6 +3451,193 @@ Higher k = stronger prior toward independence model">
         }
 
         /**
+         * Serializes current state to URL parameters
+         * @returns {string} URL with encoded state parameters
+         */
+        function serializeStateToURL() {
+            const params = new URLSearchParams();
+            
+            // Matrix data (base64 encoded to handle special characters)
+            const matrix_data = document.getElementById('table-input').value.trim();
+            if (matrix_data) {
+                params.set('data', btoa(unescape(encodeURIComponent(matrix_data))));
+            }
+            
+            // Prior frequencies (base64 encoded)
+            const prior_frequencies = document.getElementById('prior-frequencies-input').value.trim();
+            if (prior_frequencies) {
+                params.set('priors', btoa(unescape(encodeURIComponent(prior_frequencies))));
+            }
+            
+            // Normalization type
+            const normalization_radio = document.querySelector('input[name="normalization"]:checked');
+            if (normalization_radio) {
+                params.set('norm', normalization_radio.value);
+            }
+            
+            // Smoothing settings
+            const use_smoothing = document.getElementById('use-smoothing').checked;
+            params.set('smooth', use_smoothing ? '1' : '0');
+            
+            if (use_smoothing) {
+                const smoothing_type = document.getElementById('smoothing-type').value;
+                params.set('smooth_type', smoothing_type);
+                
+                if (smoothing_type === 'uniform') {
+                    const alpha = document.getElementById('alpha-value').value;
+                    params.set('alpha', alpha);
+                } else if (smoothing_type === 'hierarchical') {
+                    const k = document.getElementById('k-value').value;
+                    const alpha_prior = document.getElementById('alpha-prior').value;
+                    const alpha_prediction = document.getElementById('alpha-prediction').value;
+                    params.set('k', k);
+                    params.set('alpha_prior', alpha_prior);
+                    params.set('alpha_pred', alpha_prediction);
+                }
+            }
+            
+            // View settings
+            const include_sums = document.getElementById('include-sums').checked;
+            const include_info = document.getElementById('include-info').checked;
+            params.set('sums', include_sums ? '1' : '0');
+            params.set('info', include_info ? '1' : '0');
+            
+            // View mode (table or text)
+            const table_view_btn = document.getElementById('table-view-btn');
+            const view_mode = table_view_btn && table_view_btn.classList.contains('active') ? 'table' : 'text';
+            params.set('view', view_mode);
+            
+            // Build URL
+            const base_url = window.location.origin + window.location.pathname;
+            return base_url + '?' + params.toString();
+        }
+
+        /**
+         * Parses URL parameters and restores state
+         * @returns {boolean} True if state was restored, false otherwise
+         */
+        function parseStateFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            
+            // Check if we have any state parameters
+            if (!params.has('data') && !params.has('norm')) {
+                return false;
+            }
+            
+            try {
+                // Restore matrix data first
+                if (params.has('data')) {
+                    const encoded_data = params.get('data');
+                    const matrix_data = decodeURIComponent(escape(atob(encoded_data)));
+                    document.getElementById('table-input').value = matrix_data;
+                }
+                
+                // Restore prior frequencies
+                if (params.has('priors')) {
+                    const encoded_priors = params.get('priors');
+                    const prior_frequencies = decodeURIComponent(escape(atob(encoded_priors)));
+                    document.getElementById('prior-frequencies-input').value = prior_frequencies;
+                }
+                
+                // Restore normalization (before smoothing, as smoothing change events might trigger updates)
+                if (params.has('norm')) {
+                    const norm_value = params.get('norm');
+                    const norm_radio = document.querySelector(`input[name="normalization"][value="${norm_value}"]`);
+                    if (norm_radio) {
+                        norm_radio.checked = true;
+                    }
+                }
+                
+                // Restore view settings (before processing, as they affect rendering)
+                if (params.has('sums')) {
+                    document.getElementById('include-sums').checked = params.get('sums') === '1';
+                }
+                if (params.has('info')) {
+                    document.getElementById('include-info').checked = params.get('info') === '1';
+                }
+                
+                // Restore smoothing settings (set values without triggering updates yet)
+                if (params.has('smooth')) {
+                    const use_smoothing = params.get('smooth') === '1';
+                    const smoothing_checkbox = document.getElementById('use-smoothing');
+                    smoothing_checkbox.checked = use_smoothing;
+                    
+                    // Manually show/hide smoothing options without triggering change event
+                    const smoothing_options = document.getElementById('smoothing-options');
+                    if (smoothing_options) {
+                        smoothing_options.style.display = use_smoothing ? 'flex' : 'none';
+                    }
+                    
+                    if (use_smoothing && params.has('smooth_type')) {
+                        const smoothing_type = params.get('smooth_type');
+                        const smoothing_type_select = document.getElementById('smoothing-type');
+                        if (smoothing_type_select) {
+                            smoothing_type_select.value = smoothing_type;
+                            
+                            // Manually show/hide appropriate input groups
+                            const alpha_group = document.getElementById('alpha-input-group');
+                            const hierarchical_params = document.getElementById('hierarchical-params');
+                            
+                            if (smoothing_type === 'uniform') {
+                                if (alpha_group) alpha_group.style.display = 'flex';
+                                if (hierarchical_params) hierarchical_params.style.display = 'none';
+                            } else if (smoothing_type === 'hierarchical') {
+                                if (alpha_group) alpha_group.style.display = 'none';
+                                if (hierarchical_params) hierarchical_params.style.display = 'flex';
+                            }
+                            
+                            // Set parameter values
+                            if (smoothing_type === 'uniform' && params.has('alpha')) {
+                                document.getElementById('alpha-value').value = params.get('alpha');
+                            } else if (smoothing_type === 'hierarchical') {
+                                if (params.has('k')) {
+                                    document.getElementById('k-value').value = params.get('k');
+                                }
+                                if (params.has('alpha_prior')) {
+                                    document.getElementById('alpha-prior').value = params.get('alpha_prior');
+                                }
+                                if (params.has('alpha_pred')) {
+                                    document.getElementById('alpha-prediction').value = params.get('alpha_pred');
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Restore view mode
+                if (params.has('view')) {
+                    const view_mode = params.get('view');
+                    const table_view_btn = document.getElementById('table-view-btn');
+                    const text_view_btn = document.getElementById('text-view-btn');
+                    const matrix_container = document.getElementById('matrix-container');
+                    const text_view_container = document.getElementById('text-view-container');
+                    
+                    if (view_mode === 'table' && table_view_btn) {
+                        table_view_btn.classList.add('active');
+                        if (text_view_btn) text_view_btn.classList.remove('active');
+                        if (matrix_container) matrix_container.style.display = 'block';
+                        if (text_view_container) text_view_container.style.display = 'none';
+                    } else if (view_mode === 'text' && text_view_btn) {
+                        text_view_btn.classList.add('active');
+                        if (table_view_btn) table_view_btn.classList.remove('active');
+                        if (matrix_container) matrix_container.style.display = 'none';
+                        if (text_view_container) text_view_container.style.display = 'block';
+                    }
+                }
+                
+                // Process the input to render the matrix (this will use all the restored values)
+                if (params.has('data')) {
+                    processTableInput();
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error parsing state from URL:', error);
+                return false;
+            }
+        }
+
+        /**
          * Populates template selector with saved templates
          * side-effects: Modifies template selector DOM
          */
@@ -3679,6 +3996,78 @@ Higher k = stronger prior toward independence model">
             }
         });
 
+        // Share link button event listener
+        document.getElementById('share-link-btn').addEventListener('click', function() {
+            const input_element = document.getElementById('table-input');
+            const table_data = input_element.value.trim();
+            
+            if (!table_data) {
+                alert('Please enter table data first');
+                return;
+            }
+            
+            try {
+                // Validate that the data can be parsed
+                parseTableData(table_data);
+                
+                // Generate shareable URL
+                const share_url = serializeStateToURL();
+                
+                // Show modal with the link
+                const modal = document.getElementById('share-link-modal');
+                const link_input = document.getElementById('share-link-input');
+                const copied_msg = document.getElementById('share-link-copied');
+                
+                link_input.value = share_url;
+                copied_msg.style.display = 'none';
+                modal.style.display = 'block';
+            } catch (error) {
+                alert(`Error generating share link: ${error.message}`);
+            }
+        });
+
+        // Copy link button event listener
+        document.getElementById('copy-link-btn').addEventListener('click', function() {
+            const link_input = document.getElementById('share-link-input');
+            link_input.select();
+            link_input.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                document.execCommand('copy');
+                const copied_msg = document.getElementById('share-link-copied');
+                copied_msg.style.display = 'block';
+                
+                // Hide message after 3 seconds
+                setTimeout(function() {
+                    copied_msg.style.display = 'none';
+                }, 3000);
+            } catch (err) {
+                // Fallback: try modern clipboard API
+                navigator.clipboard.writeText(link_input.value).then(function() {
+                    const copied_msg = document.getElementById('share-link-copied');
+                    copied_msg.style.display = 'block';
+                    setTimeout(function() {
+                        copied_msg.style.display = 'none';
+                    }, 3000);
+                }).catch(function(err) {
+                    alert('Failed to copy link. Please copy manually.');
+                });
+            }
+        });
+
+        // Modal close button event listener
+        document.querySelector('.modal-close').addEventListener('click', function() {
+            document.getElementById('share-link-modal').style.display = 'none';
+        });
+
+        // Close modal when clicking outside of it
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('share-link-modal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
         // Load example data on page load
         // Make test function available globally for debugging
         window.runParserTests = runParserTests;
@@ -3791,8 +4180,14 @@ Higher k = stronger prior toward independence model">
                 updateUILanguage();
                 initializeTooltips();
                 populateTemplateSelector();
+                
+                // Try to parse state from URL on page load (after translations are loaded)
+                // If URL contains state parameters, restore them; otherwise, do nothing
+                parseStateFromURL();
             }).catch((e) => {
                 console.error('i18n: failed to load translations', e);
+                // Even if translations fail, try to parse URL state
+                parseStateFromURL();
             });
             
             // Populate template selector with saved templates on page load

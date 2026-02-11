@@ -8,6 +8,8 @@ window.LANGUAGES = {
       inputPlaceholder: 'Paste your table here (tab or space separated)...\nExample:\nGiraffe\tRhino\tCrab\n360\t12\t24\n4\t200\t2\n100\t60\t3000',
       exampleData: 'Giraffe\tRhino\tCrab\tFox\tAnt\n360\t12\t24\t18\t6\n2\t240\t0\t4\t2\n100\t40\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t10\t2000\t1000\t100000',
       templateLabel: 'Template:',
+      templateTitleLabel: 'Title:',
+      saveTemplateButton: 'Save in local storage',
       templates: {
         multiclass: 'Multi-class classifier',
         allPositive: 'All positive (noninformative)',
@@ -109,6 +111,8 @@ window.LANGUAGES = {
       inputPlaceholder: 'Вставьте сюда таблицу (разделители — табы или пробелы)...\nПример:\nЖираф\tНосорог\tКраб\n360\t12\t24\n4\t200\t2\n100\t60\t3000',
       exampleData: 'Жираф\tНосорог\tКраб\tЛиса\tМуравей\n360\t12\t24\t18\t6\n2\t240\t0\t4\t2\n100\t40\t3000\t600\t1600\n100\t50\t75\t1000\t30\n500\t10\t2000\t1000\t100000',
       templateLabel: 'Шаблон:',
+      templateTitleLabel: 'Название:',
+      saveTemplateButton: 'Сохранить в локальное хранилище',
       templates: {
         multiclass: 'Многоклассовый классификатор',
         allPositive: 'Все положительные (неинформативный)',

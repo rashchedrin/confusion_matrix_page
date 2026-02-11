@@ -121,6 +121,51 @@
             border-color: #667eea;
         }
 
+        .template-save-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .template-save-section label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        #template-title-input {
+            flex: 1;
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        #template-title-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #save-template-btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #667eea;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #save-template-btn:hover {
+            background: #5568d3;
+        }
+
+        #save-template-btn:active {
+            background: #4457c2;
+        }
+
         #table-input {
             width: 100%;
             height: 150px;
@@ -882,6 +927,11 @@
                         <option value="one_percent_positive">1% positive (noninformative)</option>
                     </select>
                 </div>
+                <div class="template-save-section">
+                    <label for="template-title-input">Title:</label>
+                    <input type="text" id="template-title-input" placeholder="Enter template name">
+                    <button id="save-template-btn">Save in local storage</button>
+                </div>
                 <textarea id="table-input" placeholder=""></textarea>
                 <div class="button-container">
                     <button id="parse-button">Generate Confusion Matrix</button>
@@ -1224,6 +1274,12 @@ Higher k = stronger prior toward independence model">
                     options[2].textContent = t('templates.onePercentPositive');
                 }
             }
+            
+            // Update template save section
+            const templateTitleLabel = document.querySelector('.template-save-section label');
+            if (templateTitleLabel) templateTitleLabel.textContent = t('templateTitleLabel');
+            const saveTemplateBtn = document.getElementById('save-template-btn');
+            if (saveTemplateBtn) saveTemplateBtn.textContent = t('saveTemplateButton');
             
             const textarea = document.getElementById('table-input');
             if (textarea) {
@@ -3127,12 +3183,100 @@ Higher k = stronger prior toward independence model">
             }
         }
 
+        /**
+         * Gets all saved template names from localStorage
+         * @returns {Array<string>} Array of template names
+         */
+        function getSavedTemplateNames() {
+            const saved_templates = [];
+            for (let idx = 0; idx < localStorage.length; idx++) {
+                const key = localStorage.key(idx);
+                if (key && key.startsWith('confusion_matrix_template_')) {
+                    const template_name = key.replace('confusion_matrix_template_', '');
+                    saved_templates.push(template_name);
+                }
+            }
+            return saved_templates.sort();
+        }
+
+        /**
+         * Saves template data to localStorage
+         * @param {string} template_name - Name of the template
+         * @param {string} template_data - Matrix data to save
+         * side-effects: Stores data in localStorage
+         */
+        function saveTemplateToLocalStorage(template_name, template_data) {
+            assert(typeof template_name === 'string' && template_name.trim().length > 0, 
+                   `Template name must be non-empty string, got: ${template_name}`);
+            assert(typeof template_data === 'string', 
+                   `Template data must be string, got: ${typeof template_data}`);
+            
+            const storage_key = 'confusion_matrix_template_' + template_name.trim();
+            localStorage.setItem(storage_key, template_data);
+        }
+
+        /**
+         * Loads template data from localStorage
+         * @param {string} template_name - Name of the template
+         * @returns {string|null} Template data or null if not found
+         */
+        function loadTemplateFromLocalStorage(template_name) {
+            assert(typeof template_name === 'string' && template_name.trim().length > 0, 
+                   `Template name must be non-empty string, got: ${template_name}`);
+            
+            const storage_key = 'confusion_matrix_template_' + template_name.trim();
+            return localStorage.getItem(storage_key);
+        }
+
+        /**
+         * Populates template selector with saved templates
+         * side-effects: Modifies template selector DOM
+         */
+        function populateTemplateSelector() {
+            const template_select = document.getElementById('template-select');
+            if (!template_select) return;
+            
+            // Remove existing saved template options (keep built-in ones)
+            const existing_options = Array.from(template_select.querySelectorAll('option'));
+            existing_options.forEach(option => {
+                if (option.value.startsWith('saved_')) {
+                    option.remove();
+                }
+            });
+            
+            // Add saved templates
+            const saved_names = getSavedTemplateNames();
+            saved_names.forEach(template_name => {
+                const option = document.createElement('option');
+                option.value = 'saved_' + template_name;
+                option.textContent = template_name;
+                template_select.appendChild(option);
+            });
+        }
+
         // Event listeners
         document.getElementById('parse-button').addEventListener('click', processTableInput);
         
         // Template selector event listener
         document.getElementById('template-select').addEventListener('change', function() {
             const template_key = this.value;
+            
+            // Handle saved templates
+            if (template_key.startsWith('saved_')) {
+                const template_name = template_key.replace('saved_', '');
+                const template_data = loadTemplateFromLocalStorage(template_name);
+                if (template_data) {
+                    document.getElementById('table-input').value = template_data;
+                    document.getElementById('template-title-input').value = template_name;
+                    processTableInput();
+                } else {
+                    alert('Template not found in local storage');
+                    populateTemplateSelector();
+                }
+                return;
+            }
+            
+            // Handle built-in templates
             const template_map = {
                 'multiclass': 'multiclass',
                 'all_positive': 'allPositive',
@@ -3141,7 +3285,47 @@ Higher k = stronger prior toward independence model">
             const translation_key = template_map[template_key];
             const template_data = t('templateData.' + translation_key) || t('exampleData');
             document.getElementById('table-input').value = template_data;
+            document.getElementById('template-title-input').value = '';
             processTableInput();
+        });
+
+        // Save template button event listener
+        document.getElementById('save-template-btn').addEventListener('click', function() {
+            const title_input = document.getElementById('template-title-input');
+            const table_input = document.getElementById('table-input');
+            const template_name = title_input.value.trim();
+            const template_data = table_input.value.trim();
+            
+            if (!template_name) {
+                alert('Please enter a template title');
+                title_input.focus();
+                return;
+            }
+            
+            if (!template_data) {
+                alert('Please enter matrix data to save');
+                table_input.focus();
+                return;
+            }
+            
+            try {
+                // Validate that the data can be parsed
+                parseTableData(template_data);
+                
+                // Save to localStorage
+                saveTemplateToLocalStorage(template_name, template_data);
+                
+                // Update template selector
+                populateTemplateSelector();
+                
+                // Select the newly saved template
+                const template_select = document.getElementById('template-select');
+                template_select.value = 'saved_' + template_name;
+                
+                alert(`Template "${template_name}" saved successfully!`);
+            } catch (error) {
+                alert(`Error saving template: ${error.message}`);
+            }
         });
         
         document.getElementById('table-input').addEventListener('keydown', function(event) {
@@ -3442,9 +3626,13 @@ Higher k = stronger prior toward independence model">
                 if (select && select.value) currentLanguage = select.value;
                 updateUILanguage();
                 initializeTooltips();
+                populateTemplateSelector();
             }).catch((e) => {
                 console.error('i18n: failed to load translations', e);
             });
+            
+            // Populate template selector with saved templates on page load
+            populateTemplateSelector();
 
             // Language selector
             const languageSelect = document.getElementById('language-select');

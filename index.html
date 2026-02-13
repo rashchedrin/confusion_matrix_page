@@ -961,6 +961,15 @@
             font-size: 1.2em;
             font-weight: 600;
             color: #667eea;
+            white-space: pre-line;
+        }
+
+        .stat-box .value-sublabel {
+            font-size: 0.75em;
+            font-weight: 600;
+            color: #495057;
+            margin-top: 4px;
+            margin-bottom: 2px;
         }
 
         @media (max-width: 768px) {
@@ -3052,10 +3061,13 @@ Higher k = stronger prior toward independence model">
             const mean_value = all_values.reduce((sum, val) => sum + val, 0) / all_values.length;
             const matrix_dimensions = `${display_matrix.length}×${display_matrix[0].length}`;
             
-            // Calculate trace and mutual information
+            // Calculate trace and sum_total
             const trace_value = calculateTrace(display_matrix);
+            const sum_total = all_values.reduce((sum, val) => sum + val, 0);
             const num_classes = Math.min(display_matrix.length, display_matrix[0].length);
-            const normalized_trace = num_classes > 0 ? trace_value / num_classes : 0;
+            const diagonal_fraction = sum_total > 0 ? trace_value / sum_total : 0;
+            const off_diagonal_fraction = sum_total > 0 ? 1 - diagonal_fraction : 0;
+            const off_diagonal_sum = sum_total - trace_value;
             
             // Calculate minimum diagonal value (worst class accuracy when normalized by truth)
             const diagonal_values = [];
@@ -3086,8 +3098,8 @@ Higher k = stronger prior toward independence model">
                 { label: t('stats.min'), value: formatNumberForDisplay(min_value, 4), tooltip: t('stats.minTip') },
                 { label: t('stats.max'), value: formatNumberForDisplay(max_value, 4), tooltip: t('stats.maxTip') },
                 { label: t('stats.mean'), value: formatNumberForDisplay(mean_value, 4), tooltip: t('stats.meanTip') },
-                { label: t('stats.trace'), value: formatNumberForDisplay(trace_value, 4), tooltip: t('stats.traceTip') },
-                { label: t('stats.tracePerClass'), value: formatNumberForDisplay(normalized_trace, 4), tooltip: t('stats.tracePerClassTip') },
+                { label: t('stats.trace'), valueLines: [formatNumberForDisplay(trace_value, 4), t('stats.offDiagonalSum'), formatNumberForDisplay(off_diagonal_sum, 4)], tooltip: t('stats.traceTip') },
+                { label: t('stats.traceOverSumTotal'), valueLines: [formatNumberForDisplay(diagonal_fraction, 4), t('stats.offDiagonalFraction'), formatNumberForDisplay(off_diagonal_fraction, 4)], tooltip: t('stats.traceOverSumTotalTip') },
                 { label: t('stats.minDiagonal'), value: formatNumberForDisplay(min_diagonal, 4), tooltip: t('stats.minDiagonalTip') },
                 { label: t('stats.mi'), value: formatNumberForDisplay(mutual_info, 4), tooltip: t('stats.miTip') },
                 { label: t('stats.nmi'), value: formatNumberForDisplay(normalized_mutual_info, 4), tooltip: t('stats.nmiTip') }
@@ -3109,7 +3121,21 @@ Higher k = stronger prior toward independence model">
                 
                 const value_element = document.createElement('div');
                 value_element.className = 'value';
-                value_element.textContent = stat.value;
+                
+                if (stat.valueLines && stat.valueLines.length === 3) {
+                    const line1 = document.createElement('div');
+                    line1.textContent = stat.valueLines[0];
+                    const sublabel = document.createElement('div');
+                    sublabel.className = 'value-sublabel';
+                    sublabel.textContent = stat.valueLines[1];
+                    const line2 = document.createElement('div');
+                    line2.textContent = stat.valueLines[2];
+                    value_element.appendChild(line1);
+                    value_element.appendChild(sublabel);
+                    value_element.appendChild(line2);
+                } else {
+                    value_element.textContent = stat.value;
+                }
                 
                 stat_box.appendChild(label_element);
                 stat_box.appendChild(value_element);

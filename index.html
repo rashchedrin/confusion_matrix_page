@@ -19,7 +19,6 @@
         }
 
         .container {
-            max-width: 1200px;
             margin: 0 auto;
             background: white;
             border-radius: 10px;
@@ -268,6 +267,15 @@
             font-weight: 600;
         }
 
+        .confusion-matrix th.col-header {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            height: 120px;
+            min-width: 1.5em;
+            vertical-align: bottom;
+            padding: 8px 5px;
+        }
+
         .confusion-matrix td {
             padding: 12px 15px;
             text-align: center;
@@ -276,6 +284,19 @@
             font-size: 13px;
             color: #333;
             min-width: 80px;
+        }
+
+        .confusion-matrix td.matrix-cell-hover,
+        .confusion-matrix th.matrix-cell-hover {
+            position: relative;
+        }
+        .confusion-matrix td.matrix-cell-hover::before,
+        .confusion-matrix th.matrix-cell-hover::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-color: rgba(102, 126, 234, 0.12);
+            pointer-events: none;
         }
 
         .normalization-section {
@@ -990,6 +1011,11 @@
             .confusion-matrix td {
                 padding: 8px 10px;
                 min-width: 60px;
+            }
+
+            .confusion-matrix th.col-header {
+                height: 80px;
+                padding: 6px 4px;
             }
             
             .matrix-controls {
@@ -1898,6 +1924,9 @@ Higher k = stronger prior toward independence model">
             if (value === 0) {
                 return '0';
             }
+            if (Number.isInteger(value)) {
+                return String(value);
+            }
             
             const fixed_string = value.toFixed(decimal_places);
             
@@ -2370,6 +2399,7 @@ Higher k = stronger prior toward independence model">
             // Column headers
             for (const column_label of parsed_data.column_labels) {
                 const header_cell = document.createElement('th');
+                header_cell.className = 'col-header';
                 header_cell.textContent = column_label;
                 header_row.appendChild(header_cell);
             }
@@ -2377,6 +2407,7 @@ Higher k = stronger prior toward independence model">
             // Sum column header
             if (include_sums) {
                 const sum_header_cell = document.createElement('th');
+                sum_header_cell.className = 'col-header';
                 sum_header_cell.textContent = t('sumLabel');
                 sum_header_cell.style.backgroundColor = '#e9ecef';
                 sum_header_cell.style.fontWeight = 'bold';
@@ -2403,9 +2434,11 @@ Higher k = stronger prior toward independence model">
                     
                     data_cell.textContent = formatNumberForDisplay(cell_value, 4);
                     data_cell.style.backgroundColor = generateColorFromValue(color_intensity);
+                    data_cell.setAttribute('data-tooltip', formatNumberForDisplay(cell_value, 4) + '\nactual: ' + parsed_data.row_labels[row_index] + '\npredicted: ' + parsed_data.column_labels[col_index]);
                     
-                    // Add white text for dark cells
-                    if (color_intensity > 0.6) {
+                    if (cell_value === 0) {
+                        data_cell.style.color = 'lightgray';
+                    } else if (color_intensity > 0.6) {
                         data_cell.style.color = 'white';
                     }
                     
@@ -3719,6 +3752,27 @@ Higher k = stronger prior toward independence model">
         }
 
         // Event listeners
+        document.getElementById('matrix-container').addEventListener('mouseover', function(event) {
+            const cell = event.target.closest('td');
+            if (!cell) return;
+            const table = cell.closest('table');
+            if (!table || !table.classList.contains('confusion-matrix')) return;
+            table.querySelectorAll('.matrix-cell-hover').forEach(function(el) { el.classList.remove('matrix-cell-hover'); });
+            const col_index = cell.cellIndex;
+            const row = cell.closest('tr');
+            row.querySelectorAll('td, th').forEach(function(c) { c.classList.add('matrix-cell-hover'); });
+            table.querySelectorAll('tr').forEach(function(tr) {
+                const col_cell = tr.cells[col_index];
+                if (col_cell) col_cell.classList.add('matrix-cell-hover');
+            });
+        });
+        document.getElementById('matrix-container').addEventListener('mouseout', function(event) {
+            const table = event.target.closest('table.confusion-matrix');
+            if (!table) return;
+            const related = event.relatedTarget;
+            if (related && table.contains(related)) return;
+            table.querySelectorAll('.matrix-cell-hover').forEach(function(el) { el.classList.remove('matrix-cell-hover'); });
+        });
         document.getElementById('parse-button').addEventListener('click', processTableInput);
         
         // Template selector event listener

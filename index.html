@@ -1878,20 +1878,29 @@ Higher k = stronger prior toward independence model">
         }
 
         /**
-         * Generates RGB color value for white-to-blue colormap
-         * @param {number} normalized_value - Value between 0 and 1
+         * Generates RGB color value: green shades for diagonal, red shades for off-diagonal
+         * @param {number} normalized_value - Value between 0 and 1 (intensity)
+         * @param {boolean} is_diagonal - True for diagonal cells (correct predictions)
          * @returns {string} RGB color string
          */
-        function generateColorFromValue(normalized_value) {
-            // Ensure value is between 0 and 1
+        function generateColorFromValue(normalized_value, is_diagonal) {
             const clamped_value = Math.max(0, Math.min(1, normalized_value));
-            
-            // White to blue transition
-            const red_component = Math.round(255 * (1 - clamped_value));
-            const green_component = Math.round(255 * (1 - clamped_value));
-            const blue_component = 255;
-            
-            return `rgb(${red_component}, ${green_component}, ${blue_component})`;
+            // Higher value -> darker color (t from 0=light to 1=dark)
+            const darkness_factor = clamped_value;
+
+            if (is_diagonal) {
+                // White to dark green
+                const red_component = Math.round(255 * (1 - darkness_factor));
+                const green_component = Math.round(255 - 95 * darkness_factor);
+                const blue_component = Math.round(255 * (1 - darkness_factor));
+                return `rgb(${red_component}, ${green_component}, ${blue_component})`;
+            } else {
+                // White to dark red
+                const red_component = Math.round(255 - 95 * darkness_factor);
+                const green_component = Math.round(255 * (1 - darkness_factor));
+                const blue_component = Math.round(255 * (1 - darkness_factor));
+                return `rgb(${red_component}, ${green_component}, ${blue_component})`;
+            }
         }
 
         /**
@@ -2431,9 +2440,10 @@ Higher k = stronger prior toward independence model">
                     const data_cell = document.createElement('td');
                     const cell_value = normalized_matrix[row_index][col_index];
                     const color_intensity = normalized_intensities[row_index][col_index];
-                    
+                    const is_diagonal = row_index === col_index;
+
                     data_cell.textContent = formatNumberForDisplay(cell_value, 4);
-                    data_cell.style.backgroundColor = generateColorFromValue(color_intensity);
+                    data_cell.style.backgroundColor = generateColorFromValue(color_intensity, is_diagonal);
                     data_cell.setAttribute('data-tooltip', formatNumberForDisplay(cell_value, 4) + '\nactual: ' + parsed_data.row_labels[row_index] + '\npredicted: ' + parsed_data.column_labels[col_index]);
                     
                     if (cell_value === 0) {

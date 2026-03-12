@@ -1185,9 +1185,9 @@ Hierarchical: Pseudocount[i,j] = k × prior_π_i × prediction_π_j
 Structured smoothing based on marginal distributions.
 Prior belief: classifier is noninformative (independent).">
                                 <option value="uniform">Uniform</option>
-                                <option value="hierarchical">Hierarchical</option>
+                                <option value="hierarchical" selected>Hierarchical</option>
                             </select>
-                        <div class="alpha-input-group" id="alpha-input-group" style="display: flex;">
+                        <div class="alpha-input-group" id="alpha-input-group" style="display: none;">
                             <label for="alpha-value">α =</label>
                             <input type="number" id="alpha-value" min="0" max="10" step="0.1" value="0.5" data-tooltip="Alpha parameter (pseudocounts added to each cell):
 
@@ -1209,7 +1209,7 @@ Prior belief: classifier is noninformative (independent).">
 
 Higher α values = more smoothing = more conservative estimates">
                             </div>
-                            <div class="hierarchical-params" id="hierarchical-params" style="display: none; gap: 8px; align-items: center;">
+                            <div class="hierarchical-params" id="hierarchical-params" style="display: flex; gap: 8px; align-items: center;">
                                 <label for="k-value" style="font-size: 13px;">k =</label>
                                 <input type="number" id="k-value" min="0" max="100" step="0.1" value="0.5" style="width: 55px; padding: 3px 6px; border: 1px solid #ddd; border-radius: 4px;" data-tooltip="k parameter (total pseudocount mass):
 

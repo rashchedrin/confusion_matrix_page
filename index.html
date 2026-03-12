@@ -232,6 +232,32 @@
             margin-top: 30px;
         }
 
+        .matrix-section-wrapper {
+            display: flex;
+            flex-direction: row;
+            gap: 25px;
+            align-items: flex-start;
+        }
+
+        .matrix-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .matrix-section-wrapper .normalization-section {
+            flex-shrink: 0;
+            width: 220px;
+            margin-top: 0;
+        }
+
+        .matrix-section-wrapper .normalization-controls {
+            flex-direction: column;
+        }
+
+        .matrix-section-wrapper .radio-option {
+            min-width: auto;
+        }
+
         .matrix-section h2 {
             color: #333;
             margin-bottom: 20px;
@@ -1039,6 +1065,15 @@
                 justify-content: space-between;
             }
             
+            .matrix-section-wrapper {
+                flex-direction: column;
+            }
+
+            .matrix-section-wrapper .normalization-section {
+                width: 100%;
+                padding-top: 0;
+            }
+            
             .normalization-controls {
                 flex-direction: column;
                 gap: 10px;
@@ -1096,140 +1131,11 @@
                     <button id="parse-button">Generate Confusion Matrix</button>
                 </div>
                 
-                <div class="normalization-section" id="normalization-section" style="display: none;">
-                    <h3>Normalization Options</h3>
-                    <div class="normalization-controls">
-                        <label class="radio-option" data-tooltip="Original confusion matrix showing raw counts or frequencies.
-
-Interpretation:
-• Each cell [i,j] = number of instances where true class was i and predicted class was j
-• Row sums = total instances per true class
-• Column sums = total instances per predicted class
-• Diagonal elements = correctly classified instances
-• Off-diagonal elements = misclassifications
-
-Use when: You want to see absolute numbers and class imbalances.">
-                            <input type="radio" name="normalization" value="none" checked>
-                            <span>Original (No normalization)</span>
-                        </label>
-                        <label class="radio-option" data-tooltip="Row-normalized matrix showing conditional probabilities P(Predicted | True).
-
-Interpretation:
-• Each cell [i,j] = probability of predicting class j given true class i
-• Each row sums to 1.0 (probability distribution)
-• Diagonal elements = per-class recall (sensitivity)
-• Off-diagonal elements = per-class confusion rates
-• Removes class imbalance effects
-
-Use when: You want to analyze classifier performance per true class, compare recall across classes, or when classes have different frequencies.
-
-Example: Cell [Cat, Dog] = 0.15 means 15% of cats were misclassified as dogs.">
-                            <input type="radio" name="normalization" value="row">
-                            <span>Normalized by truth (rows)</span>
-                        </label>
-                        <label class="radio-option" data-tooltip="Column-normalized matrix showing conditional probabilities P(True | Predicted).
-
-Interpretation:
-• Each cell [i,j] = probability that true class is i given prediction j
-• Each column sums to 1.0 (probability distribution)
-• Diagonal elements = per-class precision (positive predictive value)
-• Off-diagonal elements = per-prediction confusion rates
-• Shows reliability of predictions
-
-IMPORTANT: These are true posterior probabilities P(True | Predicted) ONLY if the test samples come from the same distribution as the training/validation data used to create this confusion matrix.
-
-Use when: You want to analyze prediction reliability under the assumption that future data matches current test distribution.
-
-Example: Cell [Cat, Dog] = 0.20 means 20% of 'Dog' predictions were actually cats (in this dataset).">
-                            <input type="radio" name="normalization" value="column">
-                            <span>Normalized by prediction (columns)</span>
-                        </label>
-                        <label class="radio-option" data-tooltip="Sequential normalization: first by truth (rows), then by prediction (columns).
-
-Interpretation:
-• Step 1: Row normalization creates P(Predicted | True)
-• Step 2: Column normalization creates posterior probabilities P(True | Predicted) under uniform prior
-• Columns sum to 1.0 (posterior probability distributions)
-• Rows do not sum to 1.0 (balanced by uniform prior assumption)
-• Represents Bayesian inference assuming equal class priors
-
-Use when: You want posterior probabilities assuming uniform class distribution, remove original class frequency bias, or analyze classifier output under balanced prior assumptions.
-
-Bayesian interpretation: Converts classifier outputs to posterior probabilities assuming P(True class) is uniform across all classes.">
-                            <input type="radio" name="normalization" value="row_then_column">
-                            <span>Truth then prediction normalized</span>
-                        </label>
-                        <label class="radio-option" data-tooltip="Doubly stochastic matrix via iterative Sinkhorn-Knopp algorithm.
-
-Interpretation:
-• Each row AND each column sums to 1.0 simultaneously
-• Creates a balanced joint probability distribution P(True, Predicted)
-• Preserves relative confusion patterns while removing all bias
-• Converges to optimal transport solution
-• Matrix may not be symmetric (asymmetry has meaning)
-
-Use when: You want to analyze pure confusion patterns without any class frequency or prediction bias effects, study classifier behavior in idealized balanced scenarios.
-
-Mathematical: Finds row scaling r and column scaling c such that diag(r) × Original × diag(c) is doubly stochastic.
-
-Asymmetry interpretation: Reflects inherent directional confusion patterns between classes.">
-                            <input type="radio" name="normalization" value="sinkhorn_knopp">
-                            <span>Sinkhorn-Knopp normalized</span>
-                        </label>
-                        <label class="radio-option" data-tooltip="Matrix normalized by total sum, creating a joint probability distribution.
-
-Interpretation:
-• Each cell [i,j] = P(True=i AND Predicted=j)
-• All cells sum to 1.0 (complete probability space)
-• Diagonal elements = P(correct classification)
-• Off-diagonal elements = P(specific misclassification types)
-• Preserves original class frequency information
-
-Use when: You want to analyze the overall probability distribution of classification outcomes, study the likelihood of specific confusion types, or maintain class frequency relationships.
-
-Example: Cell [Cat, Dog] = 0.05 means 5% of all classifications are 'cats predicted as dogs'.">
-                            <input type="radio" name="normalization" value="sum">
-                            <span>Sum normalized</span>
-                        </label>
-                        <label class="radio-option" data-tooltip="Prior-normalized matrix: truth-normalized (rows) multiplied by prior frequencies.
-
-Interpretation:
-• Step 1: Row normalization creates P(Predicted | True)
-• Step 2: Each row multiplied by corresponding prior frequency P(True=i)
-• Result: P(Predicted | True) × P(True) = P(Predicted AND True) with specified priors
-• Rows sum to prior frequencies (not 1.0)
-• Columns sum to P(Predicted) under specified priors
-
-Use when: You want to see confusion matrix under specific prior class distribution assumptions, or analyze classifier performance with custom class frequencies.
-
-Bayesian interpretation: Shows joint distribution P(True, Predicted) assuming specified prior P(True).">
-                            <input type="radio" name="normalization" value="prior">
-                            <span>Prior normalized</span>
-                        </label>
-                        <label class="radio-option" data-tooltip="Prior then prediction normalized: truth-normalized (rows) multiplied by prior frequencies, then column-normalized.
-
-Interpretation:
-• Step 1: Row normalization creates P(Predicted | True)
-• Step 2: Each row multiplied by corresponding prior frequency P(True=i)
-• Step 3: Column normalization creates posterior probabilities P(True | Predicted) under specified prior
-• Columns sum to 1.0 (posterior probability distributions)
-• Rows do not sum to 1.0 (balanced by specified prior assumption)
-• Represents Bayesian inference with custom class priors
-
-Use when: You want posterior probabilities assuming specified class distribution, remove original class frequency bias, or analyze classifier output under custom prior assumptions.
-
-Bayesian interpretation: Converts classifier outputs to posterior probabilities assuming P(True class) matches specified priors.">
-                            <input type="radio" name="normalization" value="prior_then_column">
-                            <span>Prior then prediction normalized</span>
-                        </label>
-                    </div>
-                </div>
                 <div id="error-message" class="error-message"></div>
             </div>
             
             <div class="matrix-section">
                 <h2 id="matrix-title">Confusion Matrix</h2>
-                
                 <div class="matrix-controls" id="matrix-controls" style="display: none;">
                     <div class="control-group">
                         <label class="toggle-switch">
@@ -1238,7 +1144,6 @@ Bayesian interpretation: Converts classifier outputs to posterior probabilities 
                             <span class="label-text">Include row/column sums</span>
                         </label>
                     </div>
-                    
                     <div class="control-group">
                         <label class="toggle-switch">
                             <input type="checkbox" id="include-info" checked>
@@ -1246,7 +1151,6 @@ Bayesian interpretation: Converts classifier outputs to posterior probabilities 
                             <span class="label-text">Include answer information</span>
                         </label>
                     </div>
-                    
                     <div class="control-group">
                         <label class="toggle-switch" data-tooltip="Additive smoothing (Laplace smoothing) adds pseudocounts to handle zero probabilities and improve estimates:
 
@@ -1318,7 +1222,6 @@ Higher k = stronger prior toward independence model">
                             </div>
                         </div>
                     </div>
-                    
                     <div class="control-group">
                         <label>View Mode:</label>
                         <div class="view-mode-buttons">
@@ -1326,13 +1229,142 @@ Higher k = stronger prior toward independence model">
                             <button id="text-view-btn" class="view-btn">Tab-separated Text</button>
                         </div>
                     </div>
-                    
                     <div class="control-group">
                         <button id="download-csv-btn" class="download-btn">Download as CSV</button>
+                        <button id="download-png-btn" class="download-btn">Download PNG</button>
                         <button id="share-link-btn" class="share-btn">Share link</button>
                     </div>
                 </div>
-                
+                <div class="matrix-section-wrapper">
+                    <div class="normalization-section" id="normalization-section" style="display: none;">
+                        <h3>Normalization Options</h3>
+                        <div class="normalization-controls">
+                            <label class="radio-option" data-tooltip="Original confusion matrix showing raw counts or frequencies.
+
+Interpretation:
+• Each cell [i,j] = number of instances where true class was i and predicted class was j
+• Row sums = total instances per true class
+• Column sums = total instances per predicted class
+• Diagonal elements = correctly classified instances
+• Off-diagonal elements = misclassifications
+
+Use when: You want to see absolute numbers and class imbalances.">
+                                <input type="radio" name="normalization" value="none" checked>
+                                <span>Original (No normalization)</span>
+                            </label>
+                            <label class="radio-option" data-tooltip="Row-normalized matrix showing conditional probabilities P(Predicted | True).
+
+Interpretation:
+• Each cell [i,j] = probability of predicting class j given true class i
+• Each row sums to 1.0 (probability distribution)
+• Diagonal elements = per-class recall (sensitivity)
+• Off-diagonal elements = per-class confusion rates
+• Removes class imbalance effects
+
+Use when: You want to analyze classifier performance per true class, compare recall across classes, or when classes have different frequencies.
+
+Example: Cell [Cat, Dog] = 0.15 means 15% of cats were misclassified as dogs.">
+                                <input type="radio" name="normalization" value="row">
+                                <span>Normalized by truth (rows)</span>
+                            </label>
+                            <label class="radio-option" data-tooltip="Column-normalized matrix showing conditional probabilities P(True | Predicted).
+
+Interpretation:
+• Each cell [i,j] = probability that true class is i given prediction j
+• Each column sums to 1.0 (probability distribution)
+• Diagonal elements = per-class precision (positive predictive value)
+• Off-diagonal elements = per-prediction confusion rates
+• Shows reliability of predictions
+
+IMPORTANT: These are true posterior probabilities P(True | Predicted) ONLY if the test samples come from the same distribution as the training/validation data used to create this confusion matrix.
+
+Use when: You want to analyze prediction reliability under the assumption that future data matches current test distribution.
+
+Example: Cell [Cat, Dog] = 0.20 means 20% of 'Dog' predictions were actually cats (in this dataset).">
+                                <input type="radio" name="normalization" value="column">
+                                <span>Normalized by prediction (columns)</span>
+                            </label>
+                            <label class="radio-option" data-tooltip="Sequential normalization: first by truth (rows), then by prediction (columns).
+
+Interpretation:
+• Step 1: Row normalization creates P(Predicted | True)
+• Step 2: Column normalization creates posterior probabilities P(True | Predicted) under uniform prior
+• Columns sum to 1.0 (posterior probability distributions)
+• Rows do not sum to 1.0 (balanced by uniform prior assumption)
+• Represents Bayesian inference assuming equal class priors
+
+Use when: You want posterior probabilities assuming uniform class distribution, remove original class frequency bias, or analyze classifier output under balanced prior assumptions.
+
+Bayesian interpretation: Converts classifier outputs to posterior probabilities assuming P(True class) is uniform across all classes.">
+                                <input type="radio" name="normalization" value="row_then_column">
+                                <span>Truth then prediction normalized</span>
+                            </label>
+                            <label class="radio-option" data-tooltip="Doubly stochastic matrix via iterative Sinkhorn-Knopp algorithm.
+
+Interpretation:
+• Each row AND each column sums to 1.0 simultaneously
+• Creates a balanced joint probability distribution P(True, Predicted)
+• Preserves relative confusion patterns while removing all bias
+• Converges to optimal transport solution
+• Matrix may not be symmetric (asymmetry has meaning)
+
+Use when: You want to analyze pure confusion patterns without any class frequency or prediction bias effects, study classifier behavior in idealized balanced scenarios.
+
+Mathematical: Finds row scaling r and column scaling c such that diag(r) × Original × diag(c) is doubly stochastic.
+
+Asymmetry interpretation: Reflects inherent directional confusion patterns between classes.">
+                                <input type="radio" name="normalization" value="sinkhorn_knopp">
+                                <span>Sinkhorn-Knopp normalized</span>
+                            </label>
+                            <label class="radio-option" data-tooltip="Matrix normalized by total sum, creating a joint probability distribution.
+
+Interpretation:
+• Each cell [i,j] = P(True=i AND Predicted=j)
+• All cells sum to 1.0 (complete probability space)
+• Diagonal elements = P(correct classification)
+• Off-diagonal elements = P(specific misclassification types)
+• Preserves original class frequency information
+
+Use when: You want to analyze the overall probability distribution of classification outcomes, study the likelihood of specific confusion types, or maintain class frequency relationships.
+
+Example: Cell [Cat, Dog] = 0.05 means 5% of all classifications are 'cats predicted as dogs'.">
+                                <input type="radio" name="normalization" value="sum">
+                                <span>Sum normalized</span>
+                            </label>
+                            <label class="radio-option" data-tooltip="Prior-normalized matrix: truth-normalized (rows) multiplied by prior frequencies.
+
+Interpretation:
+• Step 1: Row normalization creates P(Predicted | True)
+• Step 2: Each row multiplied by corresponding prior frequency P(True=i)
+• Result: P(Predicted | True) × P(True) = P(Predicted AND True) with specified priors
+• Rows sum to prior frequencies (not 1.0)
+• Columns sum to P(Predicted) under specified priors
+
+Use when: You want to see confusion matrix under specific prior class distribution assumptions, or analyze classifier performance with custom class frequencies.
+
+Bayesian interpretation: Shows joint distribution P(True, Predicted) assuming specified prior P(True).">
+                                <input type="radio" name="normalization" value="prior">
+                                <span>Prior normalized</span>
+                            </label>
+                            <label class="radio-option" data-tooltip="Prior then prediction normalized: truth-normalized (rows) multiplied by prior frequencies, then column-normalized.
+
+Interpretation:
+• Step 1: Row normalization creates P(Predicted | True)
+• Step 2: Each row multiplied by corresponding prior frequency P(True=i)
+• Step 3: Column normalization creates posterior probabilities P(True | Predicted) under specified prior
+• Columns sum to 1.0 (posterior probability distributions)
+• Rows do not sum to 1.0 (balanced by specified prior assumption)
+• Represents Bayesian inference with custom class priors
+
+Use when: You want posterior probabilities assuming specified class distribution, remove original class frequency bias, or analyze classifier output under custom prior assumptions.
+
+Bayesian interpretation: Converts classifier outputs to posterior probabilities assuming P(True class) matches specified priors.">
+                                <input type="radio" name="normalization" value="prior_then_column">
+                                <span>Prior then prediction normalized</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="matrix-main">
                 <!-- Share Link Modal -->
                 <div id="share-link-modal" class="modal" style="display: none;">
                     <div class="modal-content">
@@ -1357,6 +1389,8 @@ Higher k = stronger prior toward independence model">
                     <div class="prior-frequencies-content">
                         <textarea id="prior-frequencies-input" placeholder='{"class1": 1, "class2": 1, "class3": 1}'></textarea>
                         <div class="prior-frequencies-error" id="prior-frequencies-error"></div>
+                    </div>
+                </div>
                     </div>
                 </div>
             </div>
@@ -1564,6 +1598,8 @@ Higher k = stronger prior toward independence model">
             }
             const downloadBtn = document.getElementById('download-csv-btn');
             if (downloadBtn) downloadBtn.textContent = t('downloadCSV');
+            const downloadPngBtn = document.getElementById('download-png-btn');
+            if (downloadPngBtn) downloadPngBtn.textContent = t('downloadPNG');
             const shareBtn = document.getElementById('share-link-btn');
             if (shareBtn) shareBtn.textContent = t('shareLink');
             
@@ -2601,6 +2637,34 @@ Higher k = stronger prior toward independence model">
             
             matrix_container.innerHTML = '';
             matrix_container.appendChild(table_element);
+            requestAnimationFrame(() => alignNormalizationWithFirstMatrixRow());
+        }
+
+        /**
+         * Positions normalization section: start at viewport top, but not above matrix container.
+         * Updates on scroll and resize.
+         * side-effects: Modifies normalization-section element style
+         */
+        function alignNormalizationWithFirstMatrixRow() {
+            const normalization_section = document.getElementById('normalization-section');
+            if (!normalization_section) {
+                return;
+            }
+            if (window.innerWidth < 768) {
+                normalization_section.style.marginTop = '';
+                return;
+            }
+            const matrix_container = document.getElementById('matrix-container');
+            const wrapper = normalization_section.closest('.matrix-section-wrapper');
+            if (!matrix_container || !wrapper) {
+                return;
+            }
+            const matrix_rect = matrix_container.getBoundingClientRect();
+            const wrapper_rect = wrapper.getBoundingClientRect();
+            const viewport_top = 0;
+            const target_top = Math.max(viewport_top, matrix_rect.top);
+            const margin_top = Math.max(0, target_top - wrapper_rect.top);
+            normalization_section.style.marginTop = margin_top + 'px';
         }
 
         /**
@@ -2864,6 +2928,155 @@ Higher k = stronger prior toward independence model">
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        /**
+         * Inlines computed styles from original element onto clone so clone can be rendered in isolation.
+         * @param {Element} originalElement - Source element
+         * @param {Element} cloneElement - Clone to style
+         */
+        function inlineComputedStyles(originalElement, cloneElement) {
+            const computed = window.getComputedStyle(originalElement);
+            for (let idx = 0; idx < computed.length; idx++) {
+                const prop = computed.item(idx);
+                cloneElement.style.setProperty(prop, computed.getPropertyValue(prop));
+            }
+            const origChildren = originalElement.children;
+            const cloneChildren = cloneElement.children;
+            for (let idx = 0; idx < origChildren.length; idx++) {
+                if (cloneChildren[idx]) {
+                    inlineComputedStyles(origChildren[idx], cloneChildren[idx]);
+                }
+            }
+        }
+
+        /**
+         * Sanitizes a string for use in a filename (alphanumeric and single hyphens).
+         * @param {string} raw - Raw string
+         * @returns {string} Sanitized string, or empty if invalid
+         */
+        function sanitizeForFilename(raw) {
+            if (raw == null || typeof raw !== 'string') return '';
+            return raw.replace(/[^a-zA-Z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+        }
+
+        /**
+         * Builds a filesystem-safe filename from template name, matrix title and normalization.
+         * Prefers template title (from "Title" field) when non-empty.
+         * @param {string} templateTitle - Title from template-title-input (local storage / share link)
+         * @param {string} matrixTitle - Full matrix title e.g. "Confusion Matrix (By Truth (Rows))"
+         * @param {string} normalizationType - Normalization type key e.g. "row"
+         * @returns {string} Basename without extension
+         */
+        function pngFilenameFromTitleAndNorm(templateTitle, matrixTitle, normalizationType) {
+            const normSuffix = normalizationType === 'none' ? '' : `_${normalizationType}`;
+            const fromTemplate = sanitizeForFilename(templateTitle);
+            if (fromTemplate) return fromTemplate + normSuffix;
+            const fallback = normalizationType === 'none' ? 'confusion-matrix' : `confusion-matrix_${normalizationType}`;
+            if (!matrixTitle || typeof matrixTitle !== 'string') return fallback;
+            const sanitized = sanitizeForFilename(matrixTitle);
+            return sanitized || fallback;
+        }
+
+        /**
+         * Exports the visible matrix table as PNG and triggers download.
+         * side-effects: May create temporary DOM nodes; triggers file download
+         */
+        function downloadMatrixAsPng() {
+            const matrixContainer = document.getElementById('matrix-container');
+            const tableElement = matrixContainer ? matrixContainer.querySelector('table.confusion-matrix') : null;
+            if (!tableElement) {
+                alert('No matrix to download. Generate a confusion matrix first.');
+                return;
+            }
+            const templateTitleInput = document.getElementById('template-title-input');
+            const templateTitle = templateTitleInput ? templateTitleInput.value.trim() : '';
+            const matrixTitleEl = document.getElementById('matrix-title');
+            const matrixTitleText = matrixTitleEl ? matrixTitleEl.textContent.trim() : '';
+            const normalizationRadio = document.querySelector('input[name="normalization"]:checked');
+            const normalizationType = normalizationRadio ? normalizationRadio.value : 'none';
+            const normName = LANGUAGES?.[currentLanguage]?.strings?.normalizationNames?.[normalizationType];
+            const normalizationLabel = (normName != null) ? normName : normalizationType;
+
+            const clone = tableElement.cloneNode(true);
+            inlineComputedStyles(tableElement, clone);
+            const wrapper = document.createElement('div');
+            wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+            wrapper.style.backgroundColor = 'white';
+            wrapper.style.fontFamily = 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif';
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = 'margin-bottom:16px;padding:8px 0;border-bottom:2px solid #dee2e6;color:#333;font-size:18px;font-weight:600;line-height:1.4;';
+            if (templateTitle) {
+                const nameLine = document.createElement('div');
+                nameLine.style.cssText = 'font-size:16px;font-weight:600;color:#495057;margin-bottom:4px;';
+                nameLine.textContent = 'Name: ' + templateTitle;
+                headerDiv.appendChild(nameLine);
+            }
+            const matrixTitleLine = document.createElement('div');
+            matrixTitleLine.textContent = matrixTitleText || t('matrixTitle');
+            headerDiv.appendChild(matrixTitleLine);
+            const normLine = document.createElement('div');
+            normLine.style.cssText = 'margin-top:6px;font-size:14px;font-weight:500;color:#495057;';
+            normLine.textContent = 'Normalization: ' + normalizationLabel;
+            headerDiv.appendChild(normLine);
+            wrapper.appendChild(headerDiv);
+            wrapper.appendChild(clone);
+            const measureContainer = document.createElement('div');
+            measureContainer.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;display:inline-block;';
+            measureContainer.appendChild(wrapper);
+            document.body.appendChild(measureContainer);
+            const width = measureContainer.offsetWidth;
+            const height = measureContainer.offsetHeight;
+            document.body.removeChild(measureContainer);
+            if (width === 0 || height === 0) {
+                alert('Could not measure matrix dimensions.');
+                return;
+            }
+            const scale = 2;
+            const svgNs = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNs, 'svg');
+            svg.setAttribute('xmlns', svgNs);
+            svg.setAttribute('width', String(width));
+            svg.setAttribute('height', String(height));
+            const foreignObject = document.createElementNS(svgNs, 'foreignObject');
+            foreignObject.setAttribute('width', '100%');
+            foreignObject.setAttribute('height', '100%');
+            foreignObject.innerHTML = new XMLSerializer().serializeToString(wrapper);
+            svg.appendChild(foreignObject);
+            const svgString = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const objectUrl = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = width * scale;
+                canvas.height = height * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, width * scale, height * scale);
+                URL.revokeObjectURL(objectUrl);
+                let dataUrl;
+                try {
+                    dataUrl = canvas.toDataURL('image/png');
+                } catch (e) {
+                    alert('PNG export failed (browser security restriction). Try another browser.');
+                    return;
+                }
+                const filename = pngFilenameFromTitleAndNorm(templateTitle, matrixTitleText, normalizationType) + '.png';
+                const link = document.createElement('a');
+                link.setAttribute('href', dataUrl);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+            img.onerror = function() {
+                URL.revokeObjectURL(objectUrl);
+                alert('PNG export failed. Could not render matrix image.');
+            };
+            img.src = objectUrl;
         }
 
         /**
@@ -3784,7 +3997,9 @@ Higher k = stronger prior toward independence model">
             table.querySelectorAll('.matrix-cell-hover').forEach(function(el) { el.classList.remove('matrix-cell-hover'); });
         });
         document.getElementById('parse-button').addEventListener('click', processTableInput);
-        
+        window.addEventListener('resize', alignNormalizationWithFirstMatrixRow);
+        window.addEventListener('scroll', alignNormalizationWithFirstMatrixRow, { passive: true });
+
         // Template selector event listener
         document.getElementById('template-select').addEventListener('change', function() {
             const template_key = this.value;
@@ -3931,6 +4146,31 @@ Higher k = stronger prior toward independence model">
         document.getElementById('table-input').addEventListener('keydown', function(event) {
             if (event.ctrlKey && event.key === 'Enter') {
                 processTableInput();
+            }
+        });
+
+        const NORMALIZATION_VALUES = ['none', 'row', 'column', 'row_then_column', 'sinkhorn_knopp', 'sum', 'prior', 'prior_then_column'];
+        document.addEventListener('keydown', function(event) {
+            const key_num = parseInt(event.key, 10);
+            if (key_num < 1 || key_num > 8) {
+                return;
+            }
+            const active_tag = document.activeElement?.tagName?.toLowerCase();
+            if (active_tag === 'input' || active_tag === 'textarea' || active_tag === 'select') {
+                return;
+            }
+            const normalization_section = document.getElementById('normalization-section');
+            if (!normalization_section || normalization_section.style.display === 'none') {
+                return;
+            }
+            const norm_value = NORMALIZATION_VALUES[key_num - 1];
+            const norm_radio = document.querySelector(`input[name="normalization"][value="${norm_value}"]`);
+            if (norm_radio) {
+                norm_radio.checked = true;
+                if (norm_value !== 'prior' && norm_value !== 'prior_then_column') {
+                    clearPriorFrequenciesError();
+                }
+                updateMatrixNormalization();
             }
         });
         
@@ -4115,6 +4355,10 @@ Higher k = stronger prior toward independence model">
             }
         });
 
+        document.getElementById('download-png-btn').addEventListener('click', function() {
+            downloadMatrixAsPng();
+        });
+
         // Share link button event listener
         document.getElementById('share-link-btn').addEventListener('click', function() {
             const input_element = document.getElementById('table-input');
@@ -4232,11 +4476,27 @@ Higher k = stronger prior toward independence model">
                             pointerEvents: 'none',
                             fontFamily: 'system-ui, -apple-system, sans-serif'
                         });
-                        const rect = this.getBoundingClientRect();
-                        tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-                        tooltip.style.top = (rect.top - 10) + 'px';
-                        tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+                        tooltip.style.visibility = 'hidden';
+                        tooltip.style.left = '0';
+                        tooltip.style.top = '0';
                         document.body.appendChild(tooltip);
+                        const rect = this.getBoundingClientRect();
+                        const tooltip_rect = tooltip.getBoundingClientRect();
+                        const viewport_padding = 10;
+                        let tooltip_left = rect.left + rect.width / 2;
+                        let tooltip_top = rect.top - 10;
+                        let tooltip_transform = 'translateX(-50%) translateY(-100%)';
+                        tooltip_left = Math.max(tooltip_rect.width / 2 + viewport_padding, Math.min(window.innerWidth - tooltip_rect.width / 2 - viewport_padding, tooltip_left));
+                        if (tooltip_top - tooltip_rect.height < viewport_padding) {
+                            tooltip_top = rect.bottom + 10;
+                            tooltip_transform = 'translateX(-50%) translateY(0)';
+                        } else if (tooltip_top > window.innerHeight - viewport_padding) {
+                            tooltip_top = window.innerHeight - tooltip_rect.height - viewport_padding;
+                        }
+                        tooltip.style.left = tooltip_left + 'px';
+                        tooltip.style.top = tooltip_top + 'px';
+                        tooltip.style.transform = tooltip_transform;
+                        tooltip.style.visibility = '';
                     };
                     const leave = function() {
                         const tooltips = document.querySelectorAll('.custom-tooltip');

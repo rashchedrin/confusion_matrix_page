@@ -325,6 +325,16 @@
             pointer-events: none;
         }
 
+        .confusion-matrix td.cell-row-max-off-diagonal {
+            text-decoration: underline;
+        }
+
+        .confusion-matrix td.cell-col-max-off-diagonal::after {
+            content: ' |';
+            font-weight: 700;
+            color: inherit;
+        }
+
         .normalization-section {
             margin-top: 12px;
             padding: 10px 12px;
@@ -2418,6 +2428,18 @@ Bayesian interpretation: Converts classifier outputs to posterior probabilities 
             }
             const total_sum = row_sums.reduce((sum, val) => sum + val, 0);
             
+            // Column index of row max (first occurrence) per row; row index of col max (first occurrence) per column
+            const row_max_col = normalized_matrix.map(function(row_vals) {
+                const row_max = Math.max.apply(null, row_vals);
+                return row_vals.indexOf(row_max);
+            });
+            const col_max_row = [];
+            for (let col_index = 0; col_index < normalized_matrix[0].length; col_index++) {
+                const col_vals = normalized_matrix.map(function(row_vals) { return row_vals[col_index]; });
+                const col_max = Math.max.apply(null, col_vals);
+                col_max_row.push(col_vals.indexOf(col_max));
+            }
+            
             // Calculate answer information if needed
             let answer_information = [];
             if (include_info) {
@@ -2478,15 +2500,30 @@ Bayesian interpretation: Converts classifier outputs to posterior probabilities 
                     const cell_value = normalized_matrix[row_index][col_index];
                     const color_intensity = normalized_intensities[row_index][col_index];
                     const is_diagonal = row_index === col_index;
+                    const is_row_max_off_diagonal = (row_max_col[row_index] === col_index && col_index !== row_index);
+                    const is_col_max_off_diagonal = (col_max_row[col_index] === row_index && row_index !== col_index);
 
                     data_cell.textContent = formatNumberForDisplay(cell_value, 4);
                     data_cell.style.backgroundColor = generateColorFromValue(color_intensity, is_diagonal);
-                    data_cell.setAttribute('data-tooltip', formatNumberForDisplay(cell_value, 4) + '\nactual: ' + parsed_data.row_labels[row_index] + '\npredicted: ' + parsed_data.column_labels[col_index]);
-                    
+                    const tooltip_base = formatNumberForDisplay(cell_value, 4) + '\nactual: ' + parsed_data.row_labels[row_index] + '\npredicted: ' + parsed_data.column_labels[col_index];
+                    data_cell.setAttribute('data-tooltip', tooltip_base);
+                    if (is_row_max_off_diagonal || is_col_max_off_diagonal) {
+                        const notation_parts = [];
+                        if (is_row_max_off_diagonal) notation_parts.push('<u>max in row</u>');
+                        if (is_col_max_off_diagonal) notation_parts.push('max in col |');
+                        const tooltip_html = tooltip_base.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') + '<br>' + notation_parts.join(' ');
+                        data_cell.setAttribute('data-tooltip-html', tooltip_html);
+                    }
                     if (cell_value === 0) {
                         data_cell.style.color = 'lightgray';
                     } else if (color_intensity > 0.6) {
                         data_cell.style.color = 'white';
+                    }
+                    if (is_row_max_off_diagonal) {
+                        data_cell.classList.add('cell-row-max-off-diagonal');
+                    }
+                    if (is_col_max_off_diagonal) {
+                        data_cell.classList.add('cell-col-max-off-diagonal');
                     }
                     
                     data_row.appendChild(data_cell);
@@ -2582,18 +2619,23 @@ Bayesian interpretation: Converts classifier outputs to posterior probabilities 
 
                 // Attach custom tooltip handlers to match existing style
                 info_row_header.addEventListener('mouseenter', function(event) {
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'custom-tooltip';
-                    tooltip.textContent = this.getAttribute('data-tooltip');
-                    Object.assign(tooltip.style, {
-                        position: 'fixed',
-                        background: '#333',
-                        color: 'white',
-                        padding: '16px 20px',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        lineHeight: '1.5',
-                        whiteSpace: 'pre-line',
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'custom-tooltip';
+                        const tooltip_html_attr = this.getAttribute('data-tooltip-html');
+                        if (tooltip_html_attr) {
+                            tooltip.innerHTML = tooltip_html_attr;
+                        } else {
+                            tooltip.textContent = this.getAttribute('data-tooltip');
+                        }
+                        Object.assign(tooltip.style, {
+                            position: 'fixed',
+                            background: '#333',
+                            color: 'white',
+                            padding: '16px 20px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            lineHeight: '1.5',
+                            whiteSpace: tooltip_html_attr ? 'normal' : 'pre-line',
                         zIndex: '9999',
                         opacity: '0.95',
                         maxWidth: '400px',
@@ -4459,7 +4501,12 @@ Bayesian interpretation: Converts classifier outputs to posterior probabilities 
                     const enter = function() {
                         const tooltip = document.createElement('div');
                         tooltip.className = 'custom-tooltip';
-                        tooltip.textContent = this.getAttribute('data-tooltip');
+                        const tooltip_html_attr = this.getAttribute('data-tooltip-html');
+                        if (tooltip_html_attr) {
+                            tooltip.innerHTML = tooltip_html_attr;
+                        } else {
+                            tooltip.textContent = this.getAttribute('data-tooltip');
+                        }
                         Object.assign(tooltip.style, {
                             position: 'fixed',
                             background: '#333',
@@ -4468,7 +4515,7 @@ Bayesian interpretation: Converts classifier outputs to posterior probabilities 
                             borderRadius: '8px',
                             fontSize: '14px',
                             lineHeight: '1.5',
-                            whiteSpace: 'pre-line',
+                            whiteSpace: tooltip_html_attr ? 'normal' : 'pre-line',
                             zIndex: '9999',
                             opacity: '0.95',
                             maxWidth: '400px',
@@ -4529,10 +4576,15 @@ Bayesian interpretation: Converts classifier outputs to posterior probabilities 
                         header.appendChild(title);
                         header.appendChild(closeBtn);
                         const body = document.createElement('div');
-                        body.style.whiteSpace = 'pre-wrap';
+                        const tooltip_html_attr = element.getAttribute('data-tooltip-html');
+                        body.style.whiteSpace = tooltip_html_attr ? 'normal' : 'pre-wrap';
                         body.style.fontSize = '14px';
                         body.style.lineHeight = '1.6';
-                        body.textContent = element.getAttribute('data-tooltip') || '';
+                        if (tooltip_html_attr) {
+                            body.innerHTML = tooltip_html_attr;
+                        } else {
+                            body.textContent = element.getAttribute('data-tooltip') || '';
+                        }
                         content.appendChild(header);
                         content.appendChild(body);
                         modal.appendChild(content);
